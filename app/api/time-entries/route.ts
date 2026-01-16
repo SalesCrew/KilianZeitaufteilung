@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { Company, TimeEntry } from '@/lib/types';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { Company } from '@/lib/types';
 
 // GET - Fetch all time entries
 export async function GET() {
+  if (!isSupabaseConfigured() || !supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+
   try {
     const { data, error } = await supabase
       .from('time_entries')
@@ -24,6 +28,10 @@ export async function GET() {
 
 // POST - Create a new time entry
 export async function POST(request: NextRequest) {
+  if (!isSupabaseConfigured() || !supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
     const { company, start_time, session_id }: { company: Company; start_time: string; session_id: string } = body;
@@ -48,6 +56,10 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Update a time entry (set end_time)
 export async function PATCH(request: NextRequest) {
+  if (!isSupabaseConfigured() || !supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
     const { id, end_time }: { id: string; end_time: string } = body;
