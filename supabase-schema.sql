@@ -7,7 +7,7 @@
 -- Create the time_entries table
 CREATE TABLE IF NOT EXISTS time_entries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  company TEXT NOT NULL CHECK (company IN ('merchandising', 'salescre', 'inkognito')),
+  company TEXT NOT NULL CHECK (company IN ('merchandising', 'salescrew', 'inkognito')),
   start_time TIMESTAMPTZ NOT NULL,
   end_time TIMESTAMPTZ,
   session_id UUID NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS time_entries (
 
 -- Add comments for documentation
 COMMENT ON TABLE time_entries IS 'Stores time tracking entries for work sessions';
-COMMENT ON COLUMN time_entries.company IS 'Company being worked for: merchandising, salescre, or inkognito';
+COMMENT ON COLUMN time_entries.company IS 'Company being worked for: merchandising, salescrew, or inkognito';
 COMMENT ON COLUMN time_entries.start_time IS 'When work started for this company segment';
 COMMENT ON COLUMN time_entries.end_time IS 'When work ended for this company segment (null if still active)';
 COMMENT ON COLUMN time_entries.session_id IS 'Groups entries from the same work session together';

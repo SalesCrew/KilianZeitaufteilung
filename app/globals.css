@@ -13,10 +13,10 @@
   --merchandising-accent: #DBEAFE;
   --merchandising-glow: rgba(59, 130, 246, 0.15);
   
-  /* Salescre - Orange */
-  --salescre-primary: #F97316;
-  --salescre-accent: #FFEDD5;
-  --salescre-glow: rgba(249, 115, 22, 0.15);
+  /* Salescrew - Orange */
+  --salescrew-primary: #F97316;
+  --salescrew-accent: #FFEDD5;
+  --salescrew-glow: rgba(249, 115, 22, 0.15);
   
   /* Inkognito - Black & Red */
   --inkognito-primary: #DC2626;
@@ -41,8 +41,8 @@
   /* Company colors */
   --color-merchandising: var(--merchandising-primary);
   --color-merchandising-accent: var(--merchandising-accent);
-  --color-salescre: var(--salescre-primary);
-  --color-salescre-accent: var(--salescre-accent);
+  --color-salescrew: var(--salescrew-primary);
+  --color-salescrew-accent: var(--salescrew-accent);
   --color-inkognito: var(--inkognito-primary);
   --color-inkognito-accent: var(--inkognito-accent);
   --color-inkognito-dark: var(--inkognito-secondary);
@@ -70,7 +70,7 @@ body {
   font-family: var(--font-dm-sans), system-ui, sans-serif;
 }
 
-.font-salescre {
+.font-salescrew {
   font-family: var(--font-outfit), system-ui, sans-serif;
 }
 

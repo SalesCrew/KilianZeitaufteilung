@@ -1,4 +1,4 @@
-export type Company = 'merchandising' | 'salescre' | 'inkognito';
+export type Company = 'merchandising' | 'salescrew' | 'inkognito';
 
 export interface TimeEntry {
   id: string;
@@ -32,12 +32,12 @@ export const COMPANY_THEMES: Record<Company, CompanyTheme> = {
     glow: 'rgba(59, 130, 246, 0.15)',
     fontClass: 'font-merchandising',
   },
-  salescre: {
-    name: 'Salescre',
+  salescrew: {
+    name: 'Salescrew',
     primary: '#F97316',
     accent: '#FFEDD5',
     glow: 'rgba(249, 115, 22, 0.15)',
-    fontClass: 'font-salescre',
+    fontClass: 'font-salescrew',
   },
   inkognito: {
     name: 'Inkognito',

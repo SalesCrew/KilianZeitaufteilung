@@ -9,7 +9,7 @@ interface CompanySelectorProps {
   isRunning: boolean;
 }
 
-const companies: Company[] = ['merchandising', 'salescre', 'inkognito'];
+const companies: Company[] = ['merchandising', 'salescrew', 'inkognito'];
 
 export default function CompanySelector({
   selectedCompany,
@@ -51,18 +51,17 @@ export default function CompanySelector({
               border: `2px solid ${isSelected ? theme.primary : '#E5E7EB'}`,
               color: isSelected ? theme.primary : '#6B7280',
               boxShadow: isSelected 
-                ? `0 0 0 4px ${theme.glow}, 0 4px 20px -4px ${theme.glow}`
-                : '0 2px 8px -2px rgba(0,0,0,0.04)',
+                ? `0 0 16px 0 ${theme.glow}`
+                : `0 0 12px 0 rgba(0,0,0,0.04)`,
             }}
           >
             {/* Pulse glow for active running state */}
             {isSelected && isRunning && (
               <motion.div
-                className="absolute inset-0 rounded-xl"
+                className="absolute inset-0 rounded-[10px] pointer-events-none"
                 style={{ backgroundColor: theme.glow }}
                 animate={{ 
                   opacity: [0.3, 0.6, 0.3],
-                  scale: [1, 1.02, 1]
                 }}
                 transition={{ 
                   duration: 2, 
@@ -74,11 +73,11 @@ export default function CompanySelector({
 
             {/* Active indicator bar */}
             <motion.div
-              className="absolute bottom-0 left-1/2 h-0.5 rounded-full"
+              className="absolute bottom-1 left-1/2 h-0.5 rounded-full"
               style={{ backgroundColor: theme.primary }}
               initial={{ width: 0, x: '-50%' }}
               animate={{ 
-                width: isSelected ? '60%' : 0,
+                width: isSelected ? '50%' : 0,
                 x: '-50%'
               }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
