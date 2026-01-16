@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+:root {
+  /* Base Theme - White on White */
+  --background: #FAFAFA;
+  --card-background: #FFFFFF;
+  --text-primary: #1A1A1A;
+  --text-muted: #6B7280;
+  --border-color: #E5E7EB;
+  
+  /* Merchandising - Blue */
+  --merchandising-primary: #3B82F6;
+  --merchandising-accent: #DBEAFE;
+  --merchandising-glow: rgba(59, 130, 246, 0.15);
+  
+  /* Salescre - Orange */
+  --salescre-primary: #F97316;
+  --salescre-accent: #FFEDD5;
+  --salescre-glow: rgba(249, 115, 22, 0.15);
+  
+  /* Inkognito - Black & Red */
+  --inkognito-primary: #DC2626;
+  --inkognito-secondary: #1A1A1A;
+  --inkognito-accent: #FEE2E2;
+  --inkognito-glow: rgba(220, 38, 38, 0.15);
+  
+  /* Dynamic theme variables (updated by JS) */
+  --active-primary: #3B82F6;
+  --active-accent: #DBEAFE;
+  --active-glow: rgba(59, 130, 246, 0.15);
+  --active-font: var(--font-dm-sans);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-card: var(--card-background);
+  --color-foreground: var(--text-primary);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border-color);
+  
+  /* Company colors */
+  --color-merchandising: var(--merchandising-primary);
+  --color-merchandising-accent: var(--merchandising-accent);
+  --color-salescre: var(--salescre-primary);
+  --color-salescre-accent: var(--salescre-accent);
+  --color-inkognito: var(--inkognito-primary);
+  --color-inkognito-accent: var(--inkognito-accent);
+  --color-inkognito-dark: var(--inkognito-secondary);
+  
+  /* Fonts */
+  --font-dm-sans: var(--font-dm-sans);
+  --font-outfit: var(--font-outfit);
+  --font-space-grotesk: var(--font-space-grotesk);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  min-height: 100vh;
+  transition: background 400ms ease-in-out;
+}
+
+/* Smooth font transitions */
+.font-merchandising {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.font-salescre {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+.font-inkognito {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+}
+
+/* Tabular figures for timer */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Pulse animation for active states */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--active-glow);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px var(--active-glow);
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+/* Digit flip animation */
+@keyframes digit-tick {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.digit-tick {
+  animation: digit-tick 100ms ease-out;
+}
