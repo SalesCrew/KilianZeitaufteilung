@@ -2,22 +2,24 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TimeEntry, Company, COMPANY_THEMES } from '@/lib/types';
+import { TimeEntry, Company, Project, COMPANY_THEMES } from '@/lib/types';
 import { formatDurationShort, calculateDuration } from '@/lib/utils';
 import TimeBlock from './TimeBlock';
 
 interface SessionCardProps {
   entries: TimeEntry[];
   index: number;
+  projects: Project[];
 }
 
 interface CompanySummary {
   company: Company;
   totalDuration: number;
   entries: TimeEntry[];
+  projectNames: Set<string>;
 }
 
-export default function SessionCard({ entries, index }: SessionCardProps) {
+export default function SessionCard({ entries, index, projects }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Group entries by company and calculate totals
@@ -28,10 +30,18 @@ export default function SessionCard({ entries, index }: SessionCardProps) {
         company: entry.company,
         totalDuration: 0,
         entries: [],
+        projectNames: new Set(),
       };
     }
     acc[entry.company].totalDuration += duration;
     acc[entry.company].entries.push(entry);
+    
+    // Get project name
+    const project = entry.project || projects.find((p) => p.id === entry.project_id);
+    if (project?.name) {
+      acc[entry.company].projectNames.add(project.name);
+    }
+    
     return acc;
   }, {} as Record<Company, CompanySummary>);
 
@@ -48,9 +58,9 @@ export default function SessionCard({ entries, index }: SessionCardProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-5 py-4 flex items-center justify-between hover:bg-[#FAFAFA]/50 transition-colors duration-200"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-grow min-w-0">
           {/* Company color indicators */}
-          <div className="flex -space-x-1">
+          <div className="flex -space-x-1 flex-shrink-0">
             {summaries.map((summary) => (
               <div
                 key={summary.company}
@@ -60,26 +70,35 @@ export default function SessionCard({ entries, index }: SessionCardProps) {
             ))}
           </div>
           
-          {/* Company names and durations */}
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {summaries.map((summary) => {
-              const theme = COMPANY_THEMES[summary.company];
-              return (
-                <span
-                  key={summary.company}
-                  className={`text-sm font-medium ${theme.fontClass}`}
-                  style={{ color: theme.primary }}
-                >
-                  {theme.name}: {formatDurationShort(summary.totalDuration)}
-                </span>
-              );
-            })}
+          {/* Company names, projects and durations */}
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {summaries.map((summary) => {
+                const theme = COMPANY_THEMES[summary.company];
+                const projectList = Array.from(summary.projectNames);
+                return (
+                  <div key={summary.company} className="flex flex-col">
+                    <span
+                      className={`text-sm font-medium ${theme.fontClass}`}
+                      style={{ color: theme.primary }}
+                    >
+                      {theme.name}: {formatDurationShort(summary.totalDuration)}
+                    </span>
+                    {projectList.length > 0 && (
+                      <span className="text-xs text-[#9CA3AF] truncate max-w-[150px]">
+                        {projectList.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Chevron */}
         <motion.svg
-          className="w-5 h-5 text-[#9CA3AF]"
+          className="w-5 h-5 text-[#9CA3AF] flex-shrink-0 ml-2"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -103,7 +122,7 @@ export default function SessionCard({ entries, index }: SessionCardProps) {
             <div className="px-5 pb-4 pt-1 border-t border-[#E5E7EB]/40">
               <div className="space-y-1 mt-2">
                 {entries.map((entry, idx) => (
-                  <TimeBlock key={entry.id} entry={entry} index={idx} />
+                  <TimeBlock key={entry.id} entry={entry} index={idx} projects={projects} />
                 ))}
               </div>
             </div>

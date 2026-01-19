@@ -1,121 +1,139 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import Timer from '@/components/Timer';
 import CompanySelector from '@/components/CompanySelector';
 import StartStopButton from '@/components/StartStopButton';
 import HistoryPanel from '@/components/HistoryPanel';
-import { Company, TimeEntry, COMPANY_THEMES } from '@/lib/types';
+import ProjectModal from '@/components/ProjectModal';
+import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
 import { getNowISO } from '@/lib/utils';
-
-// Check if Supabase is configured
-const isSupabaseConfigured = () => {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL !== 'your_supabase_project_url' &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'your_supabase_anon_key'
-  );
-};
 
 export default function Home() {
   // Core state
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [useLocalStorage, setUseLocalStorage] = useState(false);
-  
-  // Track current entry start time for local mode
-  const currentEntryStartRef = useRef<string | null>(null);
 
-  // Load entries from localStorage or API on mount
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingCompany, setPendingCompany] = useState<Company | null>(null);
+
+  // Load data on mount
   useEffect(() => {
-    const loadEntries = async () => {
-      // Try API first
-      if (isSupabaseConfigured()) {
-        try {
-          const res = await fetch('/api/time-entries');
-          if (res.ok) {
-            const data = await res.json();
-            if (!data.error) {
-              setEntries(data);
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (error) {
-          console.log('API not available, using local storage');
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    // Try to load from API first
+    let apiWorking = false;
+
+    try {
+      const [entriesRes, projectsRes] = await Promise.all([
+        fetch('/api/time-entries'),
+        fetch('/api/projects'),
+      ]);
+
+      if (entriesRes.ok && projectsRes.ok) {
+        const entriesData = await entriesRes.json();
+        const projectsData = await projectsRes.json();
+
+        if (!entriesData.error && !projectsData.error) {
+          setEntries(entriesData);
+          setProjects(projectsData);
+          apiWorking = true;
         }
       }
+    } catch (error) {
+      console.log('API not available, using local storage');
+    }
 
+    if (!apiWorking) {
       // Fallback to localStorage
       setUseLocalStorage(true);
-      const stored = localStorage.getItem('time-entries');
-      if (stored) {
+      const storedEntries = localStorage.getItem('time-entries');
+      const storedProjects = localStorage.getItem('projects');
+      
+      if (storedEntries) {
         try {
-          setEntries(JSON.parse(stored));
+          setEntries(JSON.parse(storedEntries));
         } catch {
           setEntries([]);
         }
       }
-      setIsLoading(false);
-    };
-
-    loadEntries();
-  }, []);
-
-  // Save to localStorage when entries change (if using local mode)
-  useEffect(() => {
-    if (useLocalStorage && entries.length > 0) {
-      localStorage.setItem('time-entries', JSON.stringify(entries));
+      if (storedProjects) {
+        try {
+          setProjects(JSON.parse(storedProjects));
+        } catch {
+          setProjects([]);
+        }
+      }
     }
-  }, [entries, useLocalStorage]);
 
-  // Add entry locally
-  const addEntryLocal = useCallback((entry: TimeEntry) => {
-    setEntries((prev) => [entry, ...prev]);
+    setIsLoading(false);
+  };
+
+  // Save to localStorage when data changes (if using local mode)
+  useEffect(() => {
+    if (useLocalStorage) {
+      if (entries.length > 0) {
+        localStorage.setItem('time-entries', JSON.stringify(entries));
+      }
+      if (projects.length > 0) {
+        localStorage.setItem('projects', JSON.stringify(projects));
+      }
+    }
+  }, [entries, projects, useLocalStorage]);
+
+  // Handle company button click - opens modal
+  const handleCompanyClick = useCallback((company: Company) => {
+    setPendingCompany(company);
+    setIsModalOpen(true);
   }, []);
 
-  // Update entry locally
-  const updateEntryLocal = useCallback((id: string, updates: Partial<TimeEntry>) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
-    );
-  }, []);
-
-  // Handle company selection
-  const handleCompanySelect = useCallback(async (company: Company) => {
+  // Handle project selection from modal
+  const handleProjectSelect = useCallback(async (project: Project) => {
+    const company = project.company;
     const previousCompany = selectedCompany;
-    setSelectedCompany(company);
+    const previousProject = selectedProject;
 
-    // If timer is running and we're switching companies, create a new entry
-    if (isRunning && previousCompany !== company && currentEntryId) {
+    setSelectedCompany(company);
+    setSelectedProject(project);
+    setIsModalOpen(false);
+
+    // If timer is running and we're switching companies/projects, create a new entry
+    if (isRunning && currentEntryId && (previousCompany !== company || previousProject?.id !== project.id)) {
       const now = getNowISO();
 
       if (useLocalStorage) {
         // Update current entry end time locally
-        updateEntryLocal(currentEntryId, { end_time: now });
+        setEntries((prev) =>
+          prev.map((e) => (e.id === currentEntryId ? { ...e, end_time: now } : e))
+        );
 
-        // Create new entry for new company
+        // Create new entry
         const newEntry: TimeEntry = {
           id: uuidv4(),
           company,
           start_time: now,
           end_time: null,
           session_id: sessionId!,
+          project_id: project.id,
           created_at: now,
+          project,
         };
-        addEntryLocal(newEntry);
+        setEntries((prev) => [newEntry, ...prev]);
         setCurrentEntryId(newEntry.id);
-        currentEntryStartRef.current = now;
       } else {
-        // Use API
         try {
           await fetch('/api/time-entries', {
             method: 'PATCH',
@@ -130,28 +148,30 @@ export default function Home() {
               company,
               start_time: now,
               session_id: sessionId,
+              project_id: project.id,
             }),
           });
 
           if (res.ok) {
             const newEntry = await res.json();
             setCurrentEntryId(newEntry.id);
-            // Refetch entries
-            const fetchRes = await fetch('/api/time-entries');
-            if (fetchRes.ok) {
-              setEntries(await fetchRes.json());
-            }
+            loadData();
           }
         } catch (error) {
-          console.error('Failed to switch company:', error);
+          console.error('Failed to switch project:', error);
         }
       }
     }
-  }, [selectedCompany, isRunning, currentEntryId, sessionId, useLocalStorage, addEntryLocal, updateEntryLocal]);
+  }, [selectedCompany, selectedProject, isRunning, currentEntryId, sessionId, useLocalStorage]);
+
+  // Handle project created in modal
+  const handleProjectCreated = useCallback((project: Project) => {
+    setProjects((prev) => [...prev, project]);
+  }, []);
 
   // Start timer
   const handleStart = useCallback(async () => {
-    if (!selectedCompany) return;
+    if (!selectedCompany || !selectedProject) return;
 
     const newSessionId = uuidv4();
     const now = new Date();
@@ -162,20 +182,19 @@ export default function Home() {
     setIsRunning(true);
 
     if (useLocalStorage) {
-      // Create entry locally
       const newEntry: TimeEntry = {
         id: uuidv4(),
         company: selectedCompany,
         start_time: nowISO,
         end_time: null,
         session_id: newSessionId,
+        project_id: selectedProject.id,
         created_at: nowISO,
+        project: selectedProject,
       };
-      addEntryLocal(newEntry);
+      setEntries((prev) => [newEntry, ...prev]);
       setCurrentEntryId(newEntry.id);
-      currentEntryStartRef.current = nowISO;
     } else {
-      // Use API
       try {
         const res = await fetch('/api/time-entries', {
           method: 'POST',
@@ -184,19 +203,21 @@ export default function Home() {
             company: selectedCompany,
             start_time: nowISO,
             session_id: newSessionId,
+            project_id: selectedProject.id,
           }),
         });
 
         if (res.ok) {
           const newEntry = await res.json();
           setCurrentEntryId(newEntry.id);
+          loadData();
         }
       } catch (error) {
         console.error('Failed to start timer:', error);
         setIsRunning(false);
       }
     }
-  }, [selectedCompany, useLocalStorage, addEntryLocal]);
+  }, [selectedCompany, selectedProject, useLocalStorage]);
 
   // Stop timer
   const handleStop = useCallback(async () => {
@@ -205,22 +226,17 @@ export default function Home() {
     const now = getNowISO();
 
     if (useLocalStorage) {
-      // Update entry locally
-      updateEntryLocal(currentEntryId, { end_time: now });
+      setEntries((prev) =>
+        prev.map((e) => (e.id === currentEntryId ? { ...e, end_time: now } : e))
+      );
     } else {
-      // Use API
       try {
         await fetch('/api/time-entries', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: currentEntryId, end_time: now }),
         });
-        
-        // Refetch entries
-        const fetchRes = await fetch('/api/time-entries');
-        if (fetchRes.ok) {
-          setEntries(await fetchRes.json());
-        }
+        loadData();
       } catch (error) {
         console.error('Failed to stop timer:', error);
       }
@@ -230,8 +246,7 @@ export default function Home() {
     setCurrentEntryId(null);
     setSessionId(null);
     setStartTime(null);
-    currentEntryStartRef.current = null;
-  }, [currentEntryId, useLocalStorage, updateEntryLocal]);
+  }, [currentEntryId, useLocalStorage]);
 
   // Get current theme for page styling
   const currentTheme = selectedCompany ? COMPANY_THEMES[selectedCompany] : null;
@@ -264,6 +279,16 @@ export default function Home() {
           <p className="text-sm text-[#6B7280] mt-1">
             Track your work across companies
           </p>
+          {selectedProject && (
+            <motion.p
+              className="text-sm mt-2 font-medium"
+              style={{ color: currentTheme?.primary }}
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {selectedProject.name}
+            </motion.p>
+          )}
           {useLocalStorage && (
             <p className="text-xs text-[#F97316] mt-2">
               Demo mode (localStorage) - Configure Supabase for persistence
@@ -284,7 +309,7 @@ export default function Home() {
         <div className="mb-8">
           <CompanySelector
             selectedCompany={selectedCompany}
-            onSelect={handleCompanySelect}
+            onSelect={handleCompanyClick}
             isRunning={isRunning}
           />
         </div>
@@ -296,7 +321,7 @@ export default function Home() {
             selectedCompany={selectedCompany}
             onStart={handleStart}
             onStop={handleStop}
-            disabled={!selectedCompany}
+            disabled={!selectedCompany || !selectedProject}
           />
         </div>
 
@@ -311,7 +336,7 @@ export default function Home() {
         {/* History Panel */}
         <AnimatePresence>
           {!isLoading && (
-            <HistoryPanel entries={completedEntries} />
+            <HistoryPanel entries={completedEntries} projects={projects} />
           )}
         </AnimatePresence>
 
@@ -326,6 +351,20 @@ export default function Home() {
           </motion.div>
         )}
       </div>
+
+      {/* Project Modal */}
+      {pendingCompany && (
+        <ProjectModal
+          isOpen={isModalOpen}
+          company={pendingCompany}
+          selectedProjectId={selectedProject?.id || null}
+          onSelect={handleProjectSelect}
+          onClose={() => setIsModalOpen(false)}
+          onProjectCreated={handleProjectCreated}
+          projects={projects}
+          isTimerRunning={isRunning}
+        />
+      )}
     </main>
   );
 }

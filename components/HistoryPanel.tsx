@@ -2,12 +2,13 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TimeEntry } from '@/lib/types';
+import { TimeEntry, Project } from '@/lib/types';
 import { getDateLabel, getViennaDateString, calculateDuration, formatDurationShort, formatFullDate } from '@/lib/utils';
 import SessionCard from './SessionCard';
 
 interface HistoryPanelProps {
   entries: TimeEntry[];
+  projects: Project[];
 }
 
 interface DayGroup {
@@ -18,7 +19,7 @@ interface DayGroup {
   totalDuration: number;
 }
 
-export default function HistoryPanel({ entries }: HistoryPanelProps) {
+export default function HistoryPanel({ entries, projects }: HistoryPanelProps) {
   // Group entries by day (Vienna timezone)
   const dayGroups = useMemo<DayGroup[]>(() => {
     const groups: Record<string, TimeEntry[]> = {};
@@ -92,7 +93,7 @@ export default function HistoryPanel({ entries }: HistoryPanelProps) {
 
           {/* Session cards for this day */}
           <div className="space-y-2">
-            <SessionCard entries={group.entries} index={groupIndex} />
+            <SessionCard entries={group.entries} index={groupIndex} projects={projects} />
           </div>
         </div>
       ))}

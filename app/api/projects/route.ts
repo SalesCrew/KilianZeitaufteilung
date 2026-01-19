@@ -2,20 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Company } from '@/lib/types';
 
-// GET - Fetch all time entries with project data
-export async function GET() {
+// GET - Fetch all projects (optionally filter by company)
+export async function GET(request: NextRequest) {
   if (!isSupabaseConfigured() || !supabase) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
   }
 
   try {
-    const { data, error } = await supabase
-      .from('time_entries')
-      .select(`
-        *,
-        project:projects(*)
-      `)
-      .order('start_time', { ascending: false });
+    const { searchParams } = new URL(request.url);
+    const company = searchParams.get('company') as Company | null;
+
+    let query = supabase
+      .from('projects')
+      .select('*')
+      .eq('archived', false)
+      .order('name', { ascending: true });
+
+    if (company) {
+      query = query.eq('company', company);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Supabase error:', error);
@@ -25,11 +32,11 @@ export async function GET() {
     return NextResponse.json(data || []);
   } catch (err) {
     console.error('Fetch error:', err);
-    return NextResponse.json({ error: 'Failed to fetch entries' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
   }
 }
 
-// POST - Create a new time entry
+// POST - Create a new project
 export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured() || !supabase) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
@@ -37,20 +44,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { company, start_time, session_id, project_id }: { 
-      company: Company; 
-      start_time: string; 
-      session_id: string;
-      project_id?: string;
-    } = body;
+    const { name, company, color }: { name: string; company: Company; color?: string } = body;
+
+    if (!name || !company) {
+      return NextResponse.json({ error: 'Name and company are required' }, { status: 400 });
+    }
 
     const { data, error } = await supabase
-      .from('time_entries')
-      .insert([{ company, start_time, session_id, project_id: project_id || null }])
-      .select(`
-        *,
-        project:projects(*)
-      `)
+      .from('projects')
+      .insert([{ name, company, color: color || null }])
+      .select()
       .single();
 
     if (error) {
@@ -61,11 +64,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 });
   } catch (err) {
     console.error('Create error:', err);
-    return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
   }
 }
 
-// PATCH - Update a time entry (set end_time)
+// PATCH - Update a project (archive it)
 export async function PATCH(request: NextRequest) {
   if (!isSupabaseConfigured() || !supabase) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
@@ -73,20 +76,17 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, end_time, project_id }: { id: string; end_time?: string; project_id?: string } = body;
+    const { id, archived, name }: { id: string; archived?: boolean; name?: string } = body;
 
     const updates: Record<string, unknown> = {};
-    if (end_time !== undefined) updates.end_time = end_time;
-    if (project_id !== undefined) updates.project_id = project_id;
+    if (archived !== undefined) updates.archived = archived;
+    if (name !== undefined) updates.name = name;
 
     const { data, error } = await supabase
-      .from('time_entries')
+      .from('projects')
       .update(updates)
       .eq('id', id)
-      .select(`
-        *,
-        project:projects(*)
-      `)
+      .select()
       .single();
 
     if (error) {
@@ -97,6 +97,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(data);
   } catch (err) {
     console.error('Update error:', err);
-    return NextResponse.json({ error: 'Failed to update entry' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update project' }, { status: 500 });
   }
 }
