@@ -36,6 +36,8 @@ export default function Home() {
   const loadData = async () => {
     // Try to load from API first
     let apiWorking = false;
+    let loadedEntries: TimeEntry[] = [];
+    let loadedProjects: Project[] = [];
 
     try {
       const [entriesRes, projectsRes] = await Promise.all([
@@ -48,6 +50,8 @@ export default function Home() {
         const projectsData = await projectsRes.json();
 
         if (!entriesData.error && !projectsData.error) {
+          loadedEntries = entriesData;
+          loadedProjects = projectsData;
           setEntries(entriesData);
           setProjects(projectsData);
           apiWorking = true;
@@ -65,17 +69,36 @@ export default function Home() {
       
       if (storedEntries) {
         try {
-          setEntries(JSON.parse(storedEntries));
+          loadedEntries = JSON.parse(storedEntries);
+          setEntries(loadedEntries);
         } catch {
           setEntries([]);
         }
       }
       if (storedProjects) {
         try {
-          setProjects(JSON.parse(storedProjects));
+          loadedProjects = JSON.parse(storedProjects);
+          setProjects(loadedProjects);
         } catch {
           setProjects([]);
         }
+      }
+    }
+
+    // Check for active entry (no end_time) and resume timer
+    const activeEntry = loadedEntries.find((e) => e.end_time === null);
+    if (activeEntry) {
+      // Resume the timer
+      setCurrentEntryId(activeEntry.id);
+      setSessionId(activeEntry.session_id);
+      setStartTime(new Date(activeEntry.start_time));
+      setIsRunning(true);
+      setSelectedCompany(activeEntry.company);
+
+      // Find and set the project
+      const project = activeEntry.project || loadedProjects.find((p) => p.id === activeEntry.project_id);
+      if (project) {
+        setSelectedProject(project);
       }
     }
 
@@ -155,7 +178,15 @@ export default function Home() {
           if (res.ok) {
             const newEntry = await res.json();
             setCurrentEntryId(newEntry.id);
-            loadData();
+            // Don't call loadData here to avoid resetting state
+            // Just update entries
+            const entriesRes = await fetch('/api/time-entries');
+            if (entriesRes.ok) {
+              const entriesData = await entriesRes.json();
+              if (!entriesData.error) {
+                setEntries(entriesData);
+              }
+            }
           }
         } catch (error) {
           console.error('Failed to switch project:', error);
@@ -210,7 +241,6 @@ export default function Home() {
         if (res.ok) {
           const newEntry = await res.json();
           setCurrentEntryId(newEntry.id);
-          loadData();
         }
       } catch (error) {
         console.error('Failed to start timer:', error);
@@ -236,7 +266,14 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: currentEntryId, end_time: now }),
         });
-        loadData();
+        // Fetch updated entries
+        const entriesRes = await fetch('/api/time-entries');
+        if (entriesRes.ok) {
+          const entriesData = await entriesRes.json();
+          if (!entriesData.error) {
+            setEntries(entriesData);
+          }
+        }
       } catch (error) {
         console.error('Failed to stop timer:', error);
       }
