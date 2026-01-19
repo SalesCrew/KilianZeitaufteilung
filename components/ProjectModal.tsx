@@ -78,7 +78,7 @@ export default function ProjectModal({
 
           {/* Modal */}
           <motion.div
-            className={`relative bg-white rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] w-full max-w-md p-6 ${theme.fontClass}`}
+            className={`relative bg-white/95 rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] w-full max-w-md p-6 ${theme.fontClass}`}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}

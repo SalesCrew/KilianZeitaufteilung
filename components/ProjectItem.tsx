@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Project, CompanyTheme } from '@/lib/types';
 
@@ -20,33 +21,35 @@ export default function ProjectItem({
   index,
   onSelect,
 }: ProjectItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const getBackgroundColor = () => {
+    if (isSelected) return theme.accent;
+    if (isNewlyCreated) return '#ECFDF5';
+    if (isHovered) return '#F5F5F5';
+    return 'transparent';
+  };
+
   return (
     <motion.button
       onClick={onSelect}
-      className={`
-        w-full py-3.5 px-4 rounded-xl text-left flex items-center gap-3
-        transition-all duration-200 outline-none
-        ${isSelected 
-          ? 'border-2' 
-          : 'border-2 border-transparent hover:bg-[#FAFAFA]'
-        }
-      `}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="w-full py-3.5 px-4 rounded-xl text-left flex items-center gap-3 outline-none border-2"
       style={{
-        backgroundColor: isSelected ? theme.accent : isNewlyCreated ? '#ECFDF5' : 'transparent',
+        backgroundColor: getBackgroundColor(),
         borderColor: isSelected ? theme.primary : 'transparent',
+        transition: 'background-color 150ms ease, border-color 150ms ease',
       }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ 
         opacity: 1, 
         y: 0,
-        backgroundColor: isNewlyCreated ? ['#ECFDF5', theme.accent, '#FFFFFF'] : undefined,
       }}
       transition={{ 
         duration: 0.2, 
         delay: index * 0.05,
-        backgroundColor: isNewlyCreated ? { duration: 1.5, times: [0, 0.3, 1] } : undefined,
       }}
-      whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
     >
       {/* Dot indicator */}
