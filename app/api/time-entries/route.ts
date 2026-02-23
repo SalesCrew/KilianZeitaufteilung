@@ -37,12 +37,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { company, start_time, end_time, session_id, project_id }: { 
+    const { company, start_time, end_time, session_id, project_id, is_sick_day }: { 
       company: Company; 
       start_time: string; 
       end_time?: string;
       session_id: string;
       project_id?: string;
+      is_sick_day?: boolean;
     } = body;
 
     const insertData: Record<string, unknown> = {
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       start_time,
       session_id,
       project_id: project_id || null,
+      is_sick_day: is_sick_day || false,
     };
     if (end_time) insertData.end_time = end_time;
 

@@ -17,33 +17,39 @@ interface CompanySummary {
   totalDuration: number;
   entries: TimeEntry[];
   projectNames: Set<string>;
+  isSickDay?: boolean;
 }
 
 export default function SessionCard({ entries, index, projects }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Group entries by company and calculate totals
-  const companySummaries = entries.reduce<Record<Company, CompanySummary>>((acc, entry) => {
-    const duration = calculateDuration(entry.start_time, entry.end_time);
-    if (!acc[entry.company]) {
-      acc[entry.company] = {
-        company: entry.company,
-        totalDuration: 0,
-        entries: [],
-        projectNames: new Set(),
-      };
-    }
-    acc[entry.company].totalDuration += duration;
-    acc[entry.company].entries.push(entry);
-    
-    // Get project name
-    const project = entry.project || projects.find((p) => p.id === entry.project_id);
-    if (project?.name) {
-      acc[entry.company].projectNames.add(project.name);
-    }
-    
-    return acc;
-  }, {} as Record<Company, CompanySummary>);
+  const hasSickDay = entries.some((e) => e.is_sick_day);
+  const sickDuration = entries
+    .filter((e) => e.is_sick_day)
+    .reduce((sum, e) => sum + calculateDuration(e.start_time, e.end_time), 0);
+
+  const companySummaries = entries
+    .filter((e) => !e.is_sick_day)
+    .reduce<Record<Company, CompanySummary>>((acc, entry) => {
+      const duration = calculateDuration(entry.start_time, entry.end_time);
+      if (!acc[entry.company]) {
+        acc[entry.company] = {
+          company: entry.company,
+          totalDuration: 0,
+          entries: [],
+          projectNames: new Set(),
+        };
+      }
+      acc[entry.company].totalDuration += duration;
+      acc[entry.company].entries.push(entry);
+
+      const project = entry.project || projects.find((p) => p.id === entry.project_id);
+      if (project?.name) {
+        acc[entry.company].projectNames.add(project.name);
+      }
+
+      return acc;
+    }, {} as Record<Company, CompanySummary>);
 
   const summaries = Object.values(companySummaries);
 
@@ -61,6 +67,12 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
         <div className="flex items-center gap-3 flex-grow min-w-0">
           {/* Company color indicators */}
           <div className="flex -space-x-1 flex-shrink-0">
+            {hasSickDay && (
+              <div
+                className="w-3 h-3 rounded-full border-2 border-white"
+                style={{ backgroundColor: '#DC2626' }}
+              />
+            )}
             {summaries.map((summary) => (
               <div
                 key={summary.company}
@@ -73,6 +85,13 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
           {/* Company names, projects and durations */}
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {hasSickDay && (
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-[#DC2626]">
+                    Krankenstand: {formatDurationShort(sickDuration)}
+                  </span>
+                </div>
+              )}
               {summaries.map((summary) => {
                 const theme = COMPANY_THEMES[summary.company];
                 const projectList = Array.from(summary.projectNames);

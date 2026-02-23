@@ -16,6 +16,7 @@ export interface TimeEntry {
   end_time: string | null;
   session_id: string;
   project_id: string | null;
+  is_sick_day: boolean;
   created_at: string;
   // Joined data
   project?: Project;

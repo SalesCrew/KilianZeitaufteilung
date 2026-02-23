@@ -39,6 +39,17 @@ BEGIN
   END IF;
 END $$;
 
+-- Add is_sick_day column to time_entries (if not exists)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'time_entries' AND column_name = 'is_sick_day'
+  ) THEN
+    ALTER TABLE time_entries ADD COLUMN is_sick_day BOOLEAN DEFAULT FALSE;
+  END IF;
+END $$;
+
 -- Add comments for documentation
 COMMENT ON TABLE time_entries IS 'Stores time tracking entries for work sessions';
 COMMENT ON COLUMN time_entries.company IS 'Company being worked for: merchandising, salescrew, or inkognito';
@@ -46,6 +57,7 @@ COMMENT ON COLUMN time_entries.start_time IS 'When work started for this company
 COMMENT ON COLUMN time_entries.end_time IS 'When work ended for this company segment (null if still active)';
 COMMENT ON COLUMN time_entries.session_id IS 'Groups entries from the same work session together';
 COMMENT ON COLUMN time_entries.project_id IS 'Reference to the project being worked on';
+COMMENT ON COLUMN time_entries.is_sick_day IS 'Whether this entry represents a sick day (Krankenstand)';
 
 COMMENT ON TABLE projects IS 'Stores projects linked to companies';
 COMMENT ON COLUMN projects.name IS 'Project name (e.g., Coca Cola, Mars)';

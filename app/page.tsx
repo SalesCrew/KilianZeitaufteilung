@@ -140,12 +140,10 @@ export default function Home() {
       const now = getNowISO();
 
       if (useLocalStorage) {
-        // Update current entry end time locally
         setEntries((prev) =>
           prev.map((e) => (e.id === currentEntryId ? { ...e, end_time: now } : e))
         );
 
-        // Create new entry
         const newEntry: TimeEntry = {
           id: uuidv4(),
           company,
@@ -153,6 +151,7 @@ export default function Home() {
           end_time: null,
           session_id: sessionId!,
           project_id: project.id,
+          is_sick_day: false,
           created_at: now,
           project,
         };
@@ -222,6 +221,7 @@ export default function Home() {
         end_time: null,
         session_id: newSessionId,
         project_id: selectedProject.id,
+        is_sick_day: false,
         created_at: nowISO,
         project: selectedProject,
       };

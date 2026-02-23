@@ -335,6 +335,7 @@ interface ManualBlock {
   project_name: string;
   start_time: string;
   end_time: string;
+  is_sick_day?: boolean;
 }
 
 interface ManualEntryModalProps {
@@ -371,6 +372,7 @@ export default function ManualEntryModal({
   const [blockEnd, setBlockEnd] = useState('17:00');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSickDay, setIsSickDay] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -382,6 +384,7 @@ export default function ManualEntryModal({
       setBlockEnd('17:00');
       setSaveSuccess(false);
       setDate(getYesterdayString());
+      setIsSickDay(false);
     }
   }, [isOpen]);
 
@@ -421,44 +424,76 @@ export default function ManualEntryModal({
   };
 
   const handleSave = async () => {
-    if (blocks.length === 0) return;
+    if (!isSickDay && blocks.length === 0) return;
     setIsSaving(true);
 
     const sessionId = uuidv4();
 
     try {
-      if (useLocalStorage) {
-        const newEntries: TimeEntry[] = blocks.map((block) => {
-          const startISO = new Date(`${date}T${block.start_time}:00`).toISOString();
-          const endISO = new Date(`${date}T${block.end_time}:00`).toISOString();
-          return {
+      if (isSickDay) {
+        const startISO = new Date(`${date}T09:00:00`).toISOString();
+        const endISO = new Date(`${date}T17:30:00`).toISOString();
+
+        if (useLocalStorage) {
+          const sickEntry: TimeEntry = {
             id: uuidv4(),
-            company: block.company,
+            company: 'merchandising',
             start_time: startISO,
             end_time: endISO,
             session_id: sessionId,
-            project_id: block.project_id,
+            project_id: null,
+            is_sick_day: true,
             created_at: new Date().toISOString(),
-            project: projects.find((p) => p.id === block.project_id),
           };
-        });
-        onLocalEntries?.(newEntries);
-      } else {
-        for (const block of blocks) {
-          const startISO = new Date(`${date}T${block.start_time}:00`).toISOString();
-          const endISO = new Date(`${date}T${block.end_time}:00`).toISOString();
-
+          onLocalEntries?.([sickEntry]);
+        } else {
           await fetch('/api/time-entries', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              company: 'merchandising',
+              start_time: startISO,
+              end_time: endISO,
+              session_id: sessionId,
+              is_sick_day: true,
+            }),
+          });
+        }
+      } else {
+        if (useLocalStorage) {
+          const newEntries: TimeEntry[] = blocks.map((block) => {
+            const startISO = new Date(`${date}T${block.start_time}:00`).toISOString();
+            const endISO = new Date(`${date}T${block.end_time}:00`).toISOString();
+            return {
+              id: uuidv4(),
               company: block.company,
               start_time: startISO,
               end_time: endISO,
               session_id: sessionId,
               project_id: block.project_id,
-            }),
+              is_sick_day: false,
+              created_at: new Date().toISOString(),
+              project: projects.find((p) => p.id === block.project_id),
+            };
           });
+          onLocalEntries?.(newEntries);
+        } else {
+          for (const block of blocks) {
+            const startISO = new Date(`${date}T${block.start_time}:00`).toISOString();
+            const endISO = new Date(`${date}T${block.end_time}:00`).toISOString();
+
+            await fetch('/api/time-entries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                company: block.company,
+                start_time: startISO,
+                end_time: endISO,
+                session_id: sessionId,
+                project_id: block.project_id,
+              }),
+            });
+          }
         }
       }
 
@@ -520,63 +555,132 @@ export default function ManualEntryModal({
               />
             </div>
 
-            {/* Time blocks list */}
-            <AnimatePresence>
-              {blocks.length > 0 && (
-                <motion.div
-                  className="mb-4 space-y-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+            {/* Krankenstand toggle */}
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSickDay(!isSickDay);
+                  if (!isSickDay) {
+                    setBlocks([]);
+                    setIsAddingBlock(true);
+                  }
+                }}
+                className="w-full flex items-center justify-between py-3 px-4 rounded-xl transition-all duration-200"
+                style={{
+                  backgroundColor: isSickDay ? '#FEF2F2' : '#FAFAFA',
+                  border: `2px solid ${isSickDay ? '#FECACA' : '#E5E7EB'}`,
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke={isSickDay ? '#DC2626' : '#9CA3AF'}
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: isSickDay ? '#DC2626' : '#6B7280' }}
+                  >
+                    Krankenstand
+                  </span>
+                </div>
+                <div
+                  className="w-10 h-6 rounded-full p-0.5 transition-colors duration-200"
+                  style={{ backgroundColor: isSickDay ? '#DC2626' : '#D1D5DB' }}
                 >
-                  <label className="block text-xs font-medium text-[#6B7280] mb-2 uppercase tracking-wide">
-                    Zeitblöcke
-                  </label>
-                  {blocks.map((block, index) => {
-                    const theme = COMPANY_THEMES[block.company];
-                    return (
-                      <motion.div
-                        key={block.id}
-                        className="flex items-center gap-3 py-3 px-4 rounded-xl bg-[#FAFAFA] border border-[#E5E7EB]/60"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0, padding: 0 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                      >
-                        <div
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: theme.primary }}
-                        />
-                        <div className="flex-grow min-w-0">
-                          <div className="text-sm font-medium text-[#1A1A1A]">
-                            {block.start_time} - {block.end_time}
-                          </div>
-                          <div className="text-xs text-[#6B7280] truncate">
-                            <span style={{ color: theme.primary }} className={`font-medium ${theme.fontClass}`}>
-                              {theme.name}
-                            </span>
-                            {' · '}
-                            {block.project_name}
-                          </div>
-                        </div>
-                        <motion.button
-                          onClick={() => handleRemoveBlock(block.id)}
-                          className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#6B7280] hover:bg-[#E5E7EB]/50 transition-colors duration-150"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </motion.button>
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <motion.div
+                    className="w-5 h-5 rounded-full bg-white shadow-sm"
+                    animate={{ x: isSickDay ? 16 : 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </div>
+              </button>
 
-            {/* Add block form / button */}
-            <AnimatePresence mode="wait">
+              <AnimatePresence>
+                {isSickDay && (
+                  <motion.div
+                    className="mt-3 py-3 px-4 rounded-xl border-2 border-[#FECACA] bg-[#FEF2F2]"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#DC2626]" />
+                      <div>
+                        <div className="text-sm font-medium text-[#DC2626]">09:00 - 17:30</div>
+                        <div className="text-xs text-[#DC2626]/60">8h 30min Krankenstand</div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Time blocks list (hidden during sick day) */}
+            {!isSickDay && (
+              <AnimatePresence>
+                {blocks.length > 0 && (
+                  <motion.div
+                    className="mb-4 space-y-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <label className="block text-xs font-medium text-[#6B7280] mb-2 uppercase tracking-wide">
+                      Zeitblöcke
+                    </label>
+                    {blocks.map((block, index) => {
+                      const theme = COMPANY_THEMES[block.company];
+                      return (
+                        <motion.div
+                          key={block.id}
+                          className="flex items-center gap-3 py-3 px-4 rounded-xl bg-[#FAFAFA] border border-[#E5E7EB]/60"
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, height: 0, marginBottom: 0, padding: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.05 }}
+                        >
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: theme.primary }}
+                          />
+                          <div className="flex-grow min-w-0">
+                            <div className="text-sm font-medium text-[#1A1A1A]">
+                              {block.start_time} - {block.end_time}
+                            </div>
+                            <div className="text-xs text-[#6B7280] truncate">
+                              <span style={{ color: theme.primary }} className={`font-medium ${theme.fontClass}`}>
+                                {theme.name}
+                              </span>
+                              {' · '}
+                              {block.project_name}
+                            </div>
+                          </div>
+                          <motion.button
+                            onClick={() => handleRemoveBlock(block.id)}
+                            className="p-1.5 rounded-lg text-[#9CA3AF] hover:text-[#6B7280] hover:bg-[#E5E7EB]/50 transition-colors duration-150"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </motion.button>
+                        </motion.div>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+
+            {/* Add block form / button (hidden during sick day) */}
+            {!isSickDay && <AnimatePresence mode="wait">
               {isAddingBlock ? (
                 <motion.div
                   key="form"
@@ -696,23 +800,23 @@ export default function ManualEntryModal({
                   Zeitblock hinzufügen
                 </motion.button>
               )}
-            </AnimatePresence>
+            </AnimatePresence>}
 
             {/* Divider */}
-            {blocks.length > 0 && (
+            {(blocks.length > 0 || isSickDay) && (
               <div className="h-px bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent mb-4" />
             )}
 
             {/* Save all button */}
             <motion.button
               onClick={handleSave}
-              disabled={blocks.length === 0 || isSaving}
+              disabled={(!isSickDay && blocks.length === 0) || isSaving}
               className="w-full py-3.5 px-6 rounded-2xl text-sm font-semibold text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: saveSuccess ? '#16A34A' : '#1A1A1A',
+                backgroundColor: saveSuccess ? '#16A34A' : isSickDay ? '#DC2626' : '#1A1A1A',
               }}
-              whileHover={blocks.length > 0 && !isSaving ? { scale: 1.02, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.2)' } : {}}
-              whileTap={blocks.length > 0 && !isSaving ? { scale: 0.98 } : {}}
+              whileHover={(isSickDay || blocks.length > 0) && !isSaving ? { scale: 1.02, boxShadow: '0 8px 24px -4px rgba(0,0,0,0.2)' } : {}}
+              whileTap={(isSickDay || blocks.length > 0) && !isSaving ? { scale: 0.98 } : {}}
             >
               {saveSuccess ? (
                 <motion.div
@@ -731,6 +835,8 @@ export default function ManualEntryModal({
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Speichern...
                 </div>
+              ) : isSickDay ? (
+                'Krankenstand speichern'
               ) : (
                 `Alle speichern (${blocks.length} ${blocks.length === 1 ? 'Block' : 'Blöcke'})`
               )}
