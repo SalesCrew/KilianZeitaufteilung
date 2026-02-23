@@ -8,6 +8,7 @@ import CompanySelector from '@/components/CompanySelector';
 import StartStopButton from '@/components/StartStopButton';
 import HistoryPanel from '@/components/HistoryPanel';
 import ProjectModal from '@/components/ProjectModal';
+import ManualEntryModal from '@/components/ManualEntryModal';
 import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
 import { getNowISO } from '@/lib/utils';
 
@@ -27,6 +28,7 @@ export default function Home() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingCompany, setPendingCompany] = useState<Company | null>(null);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   // Load data on mount
   useEffect(() => {
@@ -364,11 +366,31 @@ export default function Home() {
 
         {/* Divider */}
         <motion.div
-          className="h-px bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent mb-8"
+          className="h-px bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent mb-5"
           initial={{ opacity: 0, scaleX: 0 }}
           animate={{ opacity: 1, scaleX: 1 }}
           transition={{ duration: 0.5, delay: 0.5 }}
         />
+
+        {/* Manual entry button */}
+        <motion.div
+          className="flex justify-center mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.6 }}
+        >
+          <motion.button
+            onClick={() => setIsManualModalOpen(true)}
+            className="py-2 px-4 rounded-xl border-2 border-dashed border-[#E5E7EB] text-xs text-[#9CA3AF] font-medium flex items-center gap-2 transition-colors duration-200 hover:border-[#D1D5DB] hover:text-[#6B7280]"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nachtragen
+          </motion.button>
+        </motion.div>
 
         {/* History Panel */}
         <AnimatePresence>
@@ -402,6 +424,18 @@ export default function Home() {
           isTimerRunning={isRunning}
         />
       )}
+
+      {/* Manual Entry Modal */}
+      <ManualEntryModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        projects={projects}
+        onEntriesCreated={loadData}
+        useLocalStorage={useLocalStorage}
+        onLocalEntries={(newEntries) => {
+          setEntries((prev) => [...newEntries, ...prev]);
+        }}
+      />
     </main>
   );
 }

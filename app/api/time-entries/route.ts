@@ -37,16 +37,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { company, start_time, session_id, project_id }: { 
+    const { company, start_time, end_time, session_id, project_id }: { 
       company: Company; 
       start_time: string; 
+      end_time?: string;
       session_id: string;
       project_id?: string;
     } = body;
 
+    const insertData: Record<string, unknown> = {
+      company,
+      start_time,
+      session_id,
+      project_id: project_id || null,
+    };
+    if (end_time) insertData.end_time = end_time;
+
     const { data, error } = await supabase
       .from('time_entries')
-      .insert([{ company, start_time, session_id, project_id: project_id || null }])
+      .insert([insertData])
       .select(`
         *,
         project:projects(*)
