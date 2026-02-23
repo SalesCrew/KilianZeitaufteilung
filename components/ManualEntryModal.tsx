@@ -184,10 +184,31 @@ function generateTimeOptions(): string[] {
 
 const TIME_OPTIONS = generateTimeOptions();
 
+function formatTimeInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + ':' + digits.slice(2);
+}
+
+function isValidTime(t: string): boolean {
+  const m = t.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return false;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  return h >= 0 && h <= 23 && min >= 0 && min <= 59;
+}
+
 function CustomTimePicker({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
   const ref = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync input display when value changes externally
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -208,6 +229,32 @@ function CustomTimePicker({ value, onChange, label }: { value: string; onChange:
     }
   }, [isOpen, value]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatTimeInput(e.target.value);
+    setInputValue(formatted);
+
+    if (isValidTime(formatted)) {
+      onChange(formatted);
+    }
+  };
+
+  const handleBlur = () => {
+    // On blur, snap back to the last valid value if current is invalid
+    if (!isValidTime(inputValue)) {
+      setInputValue(value);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (isValidTime(inputValue)) {
+        onChange(inputValue);
+      }
+      setIsOpen(false);
+      inputRef.current?.blur();
+    }
+  };
+
   return (
     <div className="relative" ref={ref}>
       {label && (
@@ -215,16 +262,31 @@ function CustomTimePicker({ value, onChange, label }: { value: string; onChange:
           {label}
         </label>
       )}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full py-3 px-4 rounded-xl border-2 border-[#E5E7EB] text-sm font-medium text-[#1A1A1A] outline-none transition-colors duration-200 hover:border-[#D1D5DB] bg-white text-left flex items-center justify-between"
-      >
-        <span>{value}</span>
-        <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsOpen(true)}
+          placeholder="00:00"
+          maxLength={5}
+          className="w-full py-3 px-4 pr-10 rounded-xl border-2 border-[#E5E7EB] text-sm font-medium text-[#1A1A1A] outline-none transition-colors duration-200 focus:border-[#6B7280] bg-white"
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition-colors"
+          tabIndex={-1}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
