@@ -10,6 +10,7 @@ interface SessionCardProps {
   entries: TimeEntry[];
   index: number;
   projects: Project[];
+  onEditEntry?: (entryId: string, updates: Partial<TimeEntry>) => void;
 }
 
 interface CompanySummary {
@@ -17,10 +18,10 @@ interface CompanySummary {
   totalDuration: number;
   entries: TimeEntry[];
   projectNames: Set<string>;
-  isSickDay?: boolean;
+  hasHomeOffice: boolean;
 }
 
-export default function SessionCard({ entries, index, projects }: SessionCardProps) {
+export default function SessionCard({ entries, index, projects, onEditEntry }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const hasSickDay = entries.some((e) => e.is_sick_day);
@@ -38,10 +39,12 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
           totalDuration: 0,
           entries: [],
           projectNames: new Set(),
+          hasHomeOffice: false,
         };
       }
       acc[entry.company].totalDuration += duration;
       acc[entry.company].entries.push(entry);
+      if (entry.is_home_office) acc[entry.company].hasHomeOffice = true;
 
       const project = entry.project || projects.find((p) => p.id === entry.project_id);
       if (project?.name) {
@@ -54,6 +57,7 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
   const summaries = Object.values(companySummaries);
 
   const isSunday = entries.length > 0 && new Date(entries[0].start_time).getDay() === 0;
+  const hasAnyHomeOffice = entries.some((e) => e.is_home_office && !e.is_sick_day);
 
   return (
     <motion.div
@@ -68,20 +72,31 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
       >
         <div className="flex items-center gap-3 flex-grow min-w-0">
           {/* Company color indicators */}
-          <div className="flex -space-x-1 flex-shrink-0">
-            {hasSickDay && (
-              <div
-                className="w-3 h-3 rounded-full border-2 border-white"
-                style={{ backgroundColor: '#DC2626' }}
-              />
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <div className="flex -space-x-1">
+              {hasSickDay && (
+                <div
+                  className="w-3 h-3 rounded-full border-2 border-white"
+                  style={{ backgroundColor: '#DC2626' }}
+                />
+              )}
+              {summaries.map((summary) => {
+                const theme = COMPANY_THEMES[summary.company];
+                if (!theme) return null;
+                return (
+                  <div
+                    key={summary.company}
+                    className="w-3 h-3 rounded-full border-2 border-white"
+                    style={{ backgroundColor: theme.primary }}
+                  />
+                );
+              })}
+            </div>
+            {hasAnyHomeOffice && (
+              <svg className="w-3 h-3 text-[#9CA3AF]/40 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
             )}
-            {summaries.map((summary) => (
-              <div
-                key={summary.company}
-                className="w-3 h-3 rounded-full border-2 border-white"
-                style={{ backgroundColor: COMPANY_THEMES[summary.company].primary }}
-              />
-            ))}
           </div>
           
           {/* Company names, projects and durations */}
@@ -97,6 +112,7 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
               )}
               {summaries.map((summary) => {
                 const theme = COMPANY_THEMES[summary.company];
+                if (!theme) return null;
                 const projectList = Array.from(summary.projectNames);
                 return (
                   <div key={summary.company} className="flex flex-col">
@@ -145,7 +161,7 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
             <div className="px-5 pb-4 pt-1 border-t border-[#E5E7EB]/40">
               <div className="space-y-1 mt-2">
                 {entries.map((entry, idx) => (
-                  <TimeBlock key={entry.id} entry={entry} index={idx} projects={projects} />
+                  <TimeBlock key={entry.id} entry={entry} index={idx} projects={projects} onEditEntry={onEditEntry} />
                 ))}
               </div>
             </div>

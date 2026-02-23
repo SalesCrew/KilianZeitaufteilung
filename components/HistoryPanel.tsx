@@ -9,6 +9,7 @@ import SessionCard from './SessionCard';
 interface HistoryPanelProps {
   entries: TimeEntry[];
   projects: Project[];
+  onEditEntry?: (entryId: string, updates: Partial<TimeEntry>) => void;
 }
 
 interface DayGroup {
@@ -19,7 +20,7 @@ interface DayGroup {
   totalDuration: number;
 }
 
-export default function HistoryPanel({ entries, projects }: HistoryPanelProps) {
+export default function HistoryPanel({ entries, projects, onEditEntry }: HistoryPanelProps) {
   // Group entries by day (Vienna timezone)
   const dayGroups = useMemo<DayGroup[]>(() => {
     const groups: Record<string, TimeEntry[]> = {};
@@ -93,7 +94,7 @@ export default function HistoryPanel({ entries, projects }: HistoryPanelProps) {
 
           {/* Session cards for this day */}
           <div className="space-y-2">
-            <SessionCard entries={group.entries} index={groupIndex} projects={projects} />
+            <SessionCard entries={group.entries} index={groupIndex} projects={projects} onEditEntry={onEditEntry} />
           </div>
         </div>
       ))}

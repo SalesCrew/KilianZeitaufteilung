@@ -10,7 +10,7 @@ import HistoryPanel from '@/components/HistoryPanel';
 import ProjectModal from '@/components/ProjectModal';
 import ManualEntryModal from '@/components/ManualEntryModal';
 import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
-import { getNowISO } from '@/lib/utils';
+import { getNowISO, getViennaDateString } from '@/lib/utils';
 
 export default function Home() {
   // Core state
@@ -25,10 +25,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [useLocalStorage, setUseLocalStorage] = useState(false);
 
+  // Home office state
+  const [isHomeOffice, setIsHomeOffice] = useState(false);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingCompany, setPendingCompany] = useState<Company | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
+  // Check if there are entries for today
+  const hasEntryToday = entries.some((e) => {
+    const entryDate = getViennaDateString(new Date(e.start_time));
+    const today = getViennaDateString(new Date());
+    return entryDate === today;
+  });
 
   // Load data on mount
   useEffect(() => {
@@ -36,7 +47,6 @@ export default function Home() {
   }, []);
 
   const loadData = async () => {
-    // Try to load from API first
     let apiWorking = false;
     let loadedEntries: TimeEntry[] = [];
     let loadedProjects: Project[] = [];
@@ -64,7 +74,6 @@ export default function Home() {
     }
 
     if (!apiWorking) {
-      // Fallback to localStorage
       setUseLocalStorage(true);
       const storedEntries = localStorage.getItem('time-entries');
       const storedProjects = localStorage.getItem('projects');
@@ -87,17 +96,16 @@ export default function Home() {
       }
     }
 
-    // Check for active entry (no end_time) and resume timer
+    // Resume active timer
     const activeEntry = loadedEntries.find((e) => e.end_time === null);
     if (activeEntry) {
-      // Resume the timer
       setCurrentEntryId(activeEntry.id);
       setSessionId(activeEntry.session_id);
       setStartTime(new Date(activeEntry.start_time));
       setIsRunning(true);
       setSelectedCompany(activeEntry.company);
+      setIsHomeOffice(activeEntry.is_home_office ?? false);
 
-      // Find and set the project
       const project = activeEntry.project || loadedProjects.find((p) => p.id === activeEntry.project_id);
       if (project) {
         setSelectedProject(project);
@@ -107,7 +115,7 @@ export default function Home() {
     setIsLoading(false);
   };
 
-  // Save to localStorage when data changes (if using local mode)
+  // Save to localStorage when data changes
   useEffect(() => {
     if (useLocalStorage) {
       if (entries.length > 0) {
@@ -119,13 +127,11 @@ export default function Home() {
     }
   }, [entries, projects, useLocalStorage]);
 
-  // Handle company button click - opens modal
   const handleCompanyClick = useCallback((company: Company) => {
     setPendingCompany(company);
     setIsModalOpen(true);
   }, []);
 
-  // Handle project selection from modal
   const handleProjectSelect = useCallback(async (project: Project) => {
     const company = project.company;
     const previousCompany = selectedCompany;
@@ -135,7 +141,6 @@ export default function Home() {
     setSelectedProject(project);
     setIsModalOpen(false);
 
-    // If timer is running and we're switching companies/projects, create a new entry
     if (isRunning && currentEntryId && (previousCompany !== company || previousProject?.id !== project.id)) {
       const now = getNowISO();
 
@@ -152,6 +157,7 @@ export default function Home() {
           session_id: sessionId!,
           project_id: project.id,
           is_sick_day: false,
+          is_home_office: isHomeOffice,
           created_at: now,
           project,
         };
@@ -173,14 +179,13 @@ export default function Home() {
               start_time: now,
               session_id: sessionId,
               project_id: project.id,
+              is_home_office: isHomeOffice,
             }),
           });
 
           if (res.ok) {
             const newEntry = await res.json();
             setCurrentEntryId(newEntry.id);
-            // Don't call loadData here to avoid resetting state
-            // Just update entries
             const entriesRes = await fetch('/api/time-entries');
             if (entriesRes.ok) {
               const entriesData = await entriesRes.json();
@@ -194,15 +199,86 @@ export default function Home() {
         }
       }
     }
-  }, [selectedCompany, selectedProject, isRunning, currentEntryId, sessionId, useLocalStorage]);
+  }, [selectedCompany, selectedProject, isRunning, currentEntryId, sessionId, useLocalStorage, isHomeOffice]);
 
-  // Handle project created in modal
   const handleProjectCreated = useCallback((project: Project) => {
     setProjects((prev) => [...prev, project]);
   }, []);
 
-  // Start timer
-  const handleStart = useCallback(async () => {
+  // Toggle home office while timer is running -- splits the entry
+  const handleHomeOfficeToggle = useCallback(async () => {
+    const newValue = !isHomeOffice;
+    setIsHomeOffice(newValue);
+
+    if (!isRunning || !currentEntryId || !selectedCompany || !selectedProject) return;
+
+    const now = getNowISO();
+
+    if (useLocalStorage) {
+      setEntries((prev) =>
+        prev.map((e) => (e.id === currentEntryId ? { ...e, end_time: now } : e))
+      );
+
+      const newEntry: TimeEntry = {
+        id: uuidv4(),
+        company: selectedCompany,
+        start_time: now,
+        end_time: null,
+        session_id: sessionId!,
+        project_id: selectedProject.id,
+        is_sick_day: false,
+        is_home_office: newValue,
+        created_at: now,
+        project: selectedProject,
+      };
+      setEntries((prev) => [newEntry, ...prev]);
+      setCurrentEntryId(newEntry.id);
+    } else {
+      try {
+        await fetch('/api/time-entries', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: currentEntryId, end_time: now }),
+        });
+
+        const res = await fetch('/api/time-entries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company: selectedCompany,
+            start_time: now,
+            session_id: sessionId,
+            project_id: selectedProject.id,
+            is_home_office: newValue,
+          }),
+        });
+
+        if (res.ok) {
+          const newEntry = await res.json();
+          setCurrentEntryId(newEntry.id);
+          const entriesRes = await fetch('/api/time-entries');
+          if (entriesRes.ok) {
+            const entriesData = await entriesRes.json();
+            if (!entriesData.error) {
+              setEntries(entriesData);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to toggle home office:', error);
+      }
+    }
+  }, [isHomeOffice, isRunning, currentEntryId, selectedCompany, selectedProject, sessionId, useLocalStorage]);
+
+  // Called when user picks location from first-entry prompt
+  const handleLocationSelect = useCallback((homeOffice: boolean) => {
+    setIsHomeOffice(homeOffice);
+    setShowLocationPrompt(false);
+    proceedWithStart(homeOffice);
+  }, []);
+
+  // Actual start logic, factored out so the prompt can call it
+  const proceedWithStart = useCallback(async (homeOffice: boolean) => {
     if (!selectedCompany || !selectedProject) return;
 
     const newSessionId = uuidv4();
@@ -222,6 +298,7 @@ export default function Home() {
         session_id: newSessionId,
         project_id: selectedProject.id,
         is_sick_day: false,
+        is_home_office: homeOffice,
         created_at: nowISO,
         project: selectedProject,
       };
@@ -237,6 +314,7 @@ export default function Home() {
             start_time: nowISO,
             session_id: newSessionId,
             project_id: selectedProject.id,
+            is_home_office: homeOffice,
           }),
         });
 
@@ -251,7 +329,18 @@ export default function Home() {
     }
   }, [selectedCompany, selectedProject, useLocalStorage]);
 
-  // Stop timer
+  // Start timer -- check if we need location prompt first
+  const handleStart = useCallback(async () => {
+    if (!selectedCompany || !selectedProject) return;
+
+    if (!hasEntryToday) {
+      setShowLocationPrompt(true);
+      return;
+    }
+
+    proceedWithStart(isHomeOffice);
+  }, [selectedCompany, selectedProject, hasEntryToday, isHomeOffice, proceedWithStart]);
+
   const handleStop = useCallback(async () => {
     if (!currentEntryId) return;
 
@@ -268,7 +357,6 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: currentEntryId, end_time: now }),
         });
-        // Fetch updated entries
         const entriesRes = await fetch('/api/time-entries');
         if (entriesRes.ok) {
           const entriesData = await entriesRes.json();
@@ -287,10 +375,33 @@ export default function Home() {
     setStartTime(null);
   }, [currentEntryId, useLocalStorage]);
 
-  // Get current theme for page styling
-  const currentTheme = selectedCompany ? COMPANY_THEMES[selectedCompany] : null;
+  // Edit an existing entry
+  const handleEditEntry = useCallback(async (entryId: string, updates: Partial<TimeEntry>) => {
+    if (useLocalStorage) {
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entryId ? { ...e, ...updates } : e))
+      );
+    } else {
+      try {
+        await fetch('/api/time-entries', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: entryId, ...updates }),
+        });
+        const entriesRes = await fetch('/api/time-entries');
+        if (entriesRes.ok) {
+          const entriesData = await entriesRes.json();
+          if (!entriesData.error) {
+            setEntries(entriesData);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to edit entry:', error);
+      }
+    }
+  }, [useLocalStorage]);
 
-  // Filter completed entries for history
+  const currentTheme = selectedCompany ? COMPANY_THEMES[selectedCompany] : null;
   const completedEntries = entries.filter((e) => e.end_time !== null);
 
   return (
@@ -345,13 +456,93 @@ export default function Home() {
         </div>
 
         {/* Company Selector */}
-        <div className="mb-8">
+        <div className="mb-6">
           <CompanySelector
             selectedCompany={selectedCompany}
             onSelect={handleCompanyClick}
             isRunning={isRunning}
           />
         </div>
+
+        {/* Location toggle */}
+        <motion.div
+          className="flex justify-center mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.35 }}
+        >
+          <div className="inline-flex items-center bg-white rounded-xl border-2 border-[#E5E7EB] p-1 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)]">
+            <button
+              onClick={() => { if (isHomeOffice) handleHomeOfficeToggle(); }}
+              className="relative flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                backgroundColor: !isHomeOffice ? '#F3F4F6' : 'transparent',
+                color: !isHomeOffice ? '#1A1A1A' : '#9CA3AF',
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Im Büro
+            </button>
+            <button
+              onClick={() => { if (!isHomeOffice) handleHomeOfficeToggle(); }}
+              className="relative flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                backgroundColor: isHomeOffice ? '#EFF6FF' : 'transparent',
+                color: isHomeOffice ? '#3B82F6' : '#9CA3AF',
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Home Office
+            </button>
+          </div>
+        </motion.div>
+
+        {/* First entry of day location prompt */}
+        <AnimatePresence>
+          {showLocationPrompt && (
+            <motion.div
+              className="mb-6"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              <div className="bg-white rounded-2xl border-2 border-[#E5E7EB] p-5 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.06)]">
+                <p className="text-sm font-medium text-[#1A1A1A] text-center mb-4">
+                  Wo arbeitest du heute?
+                </p>
+                <div className="flex gap-3">
+                  <motion.button
+                    onClick={() => handleLocationSelect(false)}
+                    className="flex-1 flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-[#E5E7EB] bg-[#FAFAFA] transition-all duration-200 hover:border-[#6B7280] hover:bg-[#F3F4F6]"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <svg className="w-6 h-6 text-[#6B7280]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span className="text-xs font-semibold text-[#4B5563]">Im Büro</span>
+                  </motion.button>
+                  <motion.button
+                    onClick={() => handleLocationSelect(true)}
+                    className="flex-1 flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-[#E5E7EB] bg-[#FAFAFA] transition-all duration-200 hover:border-[#3B82F6] hover:bg-[#EFF6FF]"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <svg className="w-6 h-6 text-[#3B82F6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    <span className="text-xs font-semibold text-[#3B82F6]">Home Office</span>
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Start/Stop Button */}
         <div className="flex justify-center mb-12">
@@ -395,7 +586,7 @@ export default function Home() {
         {/* History Panel */}
         <AnimatePresence>
           {!isLoading && (
-            <HistoryPanel entries={completedEntries} projects={projects} />
+            <HistoryPanel entries={completedEntries} projects={projects} onEditEntry={handleEditEntry} />
           )}
         </AnimatePresence>
 

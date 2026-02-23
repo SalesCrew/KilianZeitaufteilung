@@ -336,6 +336,7 @@ interface ManualBlock {
   start_time: string;
   end_time: string;
   is_sick_day?: boolean;
+  is_home_office: boolean;
 }
 
 interface ManualEntryModalProps {
@@ -373,6 +374,7 @@ export default function ManualEntryModal({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSickDay, setIsSickDay] = useState(false);
+  const [blockHomeOffice, setBlockHomeOffice] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -385,6 +387,7 @@ export default function ManualEntryModal({
       setSaveSuccess(false);
       setDate(getYesterdayString());
       setIsSickDay(false);
+      setBlockHomeOffice(false);
     }
   }, [isOpen]);
 
@@ -409,6 +412,7 @@ export default function ManualEntryModal({
       project_name: project.name,
       start_time: blockStart,
       end_time: blockEnd,
+      is_home_office: blockHomeOffice,
     };
 
     setBlocks((prev) => [...prev, newBlock]);
@@ -417,6 +421,7 @@ export default function ManualEntryModal({
     setBlockProjectId(null);
     setBlockStart(blockEnd);
     setBlockEnd('17:00');
+    setBlockHomeOffice(false);
   };
 
   const handleRemoveBlock = (id: string) => {
@@ -443,6 +448,7 @@ export default function ManualEntryModal({
             session_id: sessionId,
             project_id: null,
             is_sick_day: true,
+            is_home_office: false,
             created_at: new Date().toISOString(),
           };
           onLocalEntries?.([sickEntry]);
@@ -472,6 +478,7 @@ export default function ManualEntryModal({
               session_id: sessionId,
               project_id: block.project_id,
               is_sick_day: false,
+              is_home_office: block.is_home_office,
               created_at: new Date().toISOString(),
               project: projects.find((p) => p.id === block.project_id),
             };
@@ -491,6 +498,7 @@ export default function ManualEntryModal({
                 end_time: endISO,
                 session_id: sessionId,
                 project_id: block.project_id,
+                is_home_office: block.is_home_office,
               }),
             });
           }
@@ -645,10 +653,17 @@ export default function ManualEntryModal({
                           exit={{ opacity: 0, height: 0, marginBottom: 0, padding: 0 }}
                           transition={{ duration: 0.2, delay: index * 0.05 }}
                         >
-                          <div
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: theme.primary }}
-                          />
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{ backgroundColor: theme.primary }}
+                            />
+                            {block.is_home_office && (
+                              <svg className="w-3 h-3 text-[#3B82F6]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                              </svg>
+                            )}
+                          </div>
                           <div className="flex-grow min-w-0">
                             <div className="text-sm font-medium text-[#1A1A1A]">
                               {block.start_time} - {block.end_time}
@@ -755,6 +770,45 @@ export default function ManualEntryModal({
                       <CustomTimePicker label="Bis" value={blockEnd} onChange={setBlockEnd} />
                     </div>
                   </div>
+
+                  {/* Home Office toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setBlockHomeOffice(!blockHomeOffice)}
+                    className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all duration-200"
+                    style={{
+                      backgroundColor: blockHomeOffice ? '#EFF6FF' : '#FAFAFA',
+                      border: `1.5px solid ${blockHomeOffice ? '#93C5FD' : '#E5E7EB'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke={blockHomeOffice ? '#3B82F6' : '#9CA3AF'}
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: blockHomeOffice ? '#3B82F6' : '#6B7280' }}
+                      >
+                        Home Office
+                      </span>
+                    </div>
+                    <div
+                      className="w-8 h-5 rounded-full p-0.5 transition-colors duration-200"
+                      style={{ backgroundColor: blockHomeOffice ? '#3B82F6' : '#D1D5DB' }}
+                    >
+                      <motion.div
+                        className="w-4 h-4 rounded-full bg-white shadow-sm"
+                        animate={{ x: blockHomeOffice ? 12 : 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      />
+                    </div>
+                  </button>
 
                   {/* Add block button */}
                   <div className="flex gap-2">
