@@ -53,6 +53,8 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
 
   const summaries = Object.values(companySummaries);
 
+  const isSunday = entries.length > 0 && new Date(entries[0].start_time).getDay() === 0;
+
   return (
     <motion.div
       className="bg-white rounded-2xl border border-[#E5E7EB]/60 overflow-hidden shadow-[0_2px_16px_-4px_rgba(0,0,0,0.04)]"
@@ -87,8 +89,9 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               {hasSickDay && (
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-[#DC2626]">
+                  <span className="text-sm font-medium text-[#DC2626] flex items-center gap-1.5">
                     Krankenstand: {formatDurationShort(sickDuration)}
+                    {isSunday && <span className="text-xs opacity-40 font-medium">2x</span>}
                   </span>
                 </div>
               )}
@@ -98,10 +101,11 @@ export default function SessionCard({ entries, index, projects }: SessionCardPro
                 return (
                   <div key={summary.company} className="flex flex-col">
                     <span
-                      className={`text-sm font-medium ${theme.fontClass}`}
+                      className={`text-sm font-medium ${theme.fontClass} flex items-center gap-1.5`}
                       style={{ color: theme.primary }}
                     >
                       {theme.name}: {formatDurationShort(summary.totalDuration)}
+                      {isSunday && <span className="text-xs opacity-40 font-medium">2x</span>}
                     </span>
                     {projectList.length > 0 && (
                       <span className="text-xs text-[#9CA3AF] truncate max-w-[150px]">

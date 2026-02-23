@@ -17,6 +17,7 @@ export default function TimeBlock({ entry, index, projects }: TimeBlockProps) {
   const startTime = formatTime(entry.start_time);
   const endTime = entry.end_time ? formatTime(entry.end_time) : 'ongoing';
   const dateStr = formatDateShort(entry.start_time);
+  const isSunday = new Date(entry.start_time).getDay() === 0;
 
   const project = entry.project || projects.find((p) => p.id === entry.project_id);
   const projectName = project?.name;
@@ -60,8 +61,9 @@ export default function TimeBlock({ entry, index, projects }: TimeBlockProps) {
           </>
         )}
       </div>
-      <span className="text-sm text-[#9CA3AF] flex-shrink-0">
+      <span className="text-sm text-[#9CA3AF] flex-shrink-0 flex items-center gap-1.5">
         {formatDurationShort(duration)}
+        {isSunday && <span className="text-xs text-[#9CA3AF]/50 font-medium">2x</span>}
       </span>
     </motion.div>
   );
