@@ -10,7 +10,7 @@ import HistoryPanel from '@/components/HistoryPanel';
 import ProjectModal from '@/components/ProjectModal';
 import ManualEntryModal from '@/components/ManualEntryModal';
 import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
-import { getNowISO, getViennaDateString } from '@/lib/utils';
+import { getNowISO } from '@/lib/utils';
 
 export default function Home() {
   // Core state
@@ -27,19 +27,11 @@ export default function Home() {
 
   // Home office state
   const [isHomeOffice, setIsHomeOffice] = useState(false);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingCompany, setPendingCompany] = useState<Company | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-
-  // Check if there are entries for today
-  const hasEntryToday = entries.some((e) => {
-    const entryDate = getViennaDateString(new Date(e.start_time));
-    const today = getViennaDateString(new Date());
-    return entryDate === today;
-  });
 
   // Load data on mount
   useEffect(() => {
@@ -205,14 +197,6 @@ export default function Home() {
     setProjects((prev) => [...prev, project]);
   }, []);
 
-  // Called when user picks location from first-entry prompt
-  const handleLocationSelect = useCallback((homeOffice: boolean) => {
-    setIsHomeOffice(homeOffice);
-    setShowLocationPrompt(false);
-    proceedWithStart(homeOffice);
-  }, []);
-
-  // Actual start logic, factored out so the prompt can call it
   const proceedWithStart = useCallback(async (homeOffice: boolean) => {
     if (!selectedCompany || !selectedProject) return;
 
@@ -264,17 +248,10 @@ export default function Home() {
     }
   }, [selectedCompany, selectedProject, useLocalStorage]);
 
-  // Start timer -- check if we need location prompt first
   const handleStart = useCallback(async () => {
     if (!selectedCompany || !selectedProject) return;
-
-    if (!hasEntryToday) {
-      setShowLocationPrompt(true);
-      return;
-    }
-
     proceedWithStart(isHomeOffice);
-  }, [selectedCompany, selectedProject, hasEntryToday, isHomeOffice, proceedWithStart]);
+  }, [selectedCompany, selectedProject, isHomeOffice, proceedWithStart]);
 
   const handleStop = useCallback(async () => {
     if (!currentEntryId) return;
@@ -399,48 +376,42 @@ export default function Home() {
           />
         </div>
 
-        {/* First entry of day location prompt */}
-        <AnimatePresence>
-          {showLocationPrompt && (
-            <motion.div
-              className="mb-6"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        {/* Location toggle */}
+        <motion.div
+          className="flex justify-center mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.35 }}
+        >
+          <div className="inline-flex items-center bg-white rounded-xl border-2 border-[#E5E7EB] p-1 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)]">
+            <button
+              onClick={() => setIsHomeOffice(false)}
+              className="relative flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                backgroundColor: !isHomeOffice ? '#F3F4F6' : 'transparent',
+                color: !isHomeOffice ? '#1A1A1A' : '#9CA3AF',
+              }}
             >
-              <div className="bg-white rounded-2xl border-2 border-[#E5E7EB] p-5 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.06)]">
-                <p className="text-sm font-medium text-[#1A1A1A] text-center mb-4">
-                  Wo arbeitest du heute?
-                </p>
-                <div className="flex gap-3">
-                  <motion.button
-                    onClick={() => handleLocationSelect(false)}
-                    className="flex-1 flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-[#E5E7EB] bg-[#FAFAFA] transition-all duration-200 hover:border-[#6B7280] hover:bg-[#F3F4F6]"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <svg className="w-6 h-6 text-[#6B7280]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    <span className="text-xs font-semibold text-[#4B5563]">Im Büro</span>
-                  </motion.button>
-                  <motion.button
-                    onClick={() => handleLocationSelect(true)}
-                    className="flex-1 flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 border-[#E5E7EB] bg-[#FAFAFA] transition-all duration-200 hover:border-[#3B82F6] hover:bg-[#EFF6FF]"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <svg className="w-6 h-6 text-[#3B82F6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <span className="text-xs font-semibold text-[#3B82F6]">Home Office</span>
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              Im Büro
+            </button>
+            <button
+              onClick={() => setIsHomeOffice(true)}
+              className="relative flex items-center gap-2 py-2 px-4 rounded-lg text-xs font-medium transition-all duration-200"
+              style={{
+                backgroundColor: isHomeOffice ? '#EFF6FF' : 'transparent',
+                color: isHomeOffice ? '#3B82F6' : '#9CA3AF',
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Home Office
+            </button>
+          </div>
+        </motion.div>
 
         {/* Start/Stop Button */}
         <div className="flex justify-center mb-12">
