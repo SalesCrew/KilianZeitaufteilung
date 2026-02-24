@@ -460,10 +460,10 @@ export default function Home() {
         transition={{ duration: 0.5, delay: 0.8 }}
       >
         <p className="text-xs font-medium text-[#1A1A1A]/25">
-          Gesamt: {formatStatDuration(stats.totalSeconds)}
+          Gesamt: {formatStatDuration(stats.totalSeconds + liveElapsed)}
         </p>
         <p className="text-xs font-medium text-[#1A1A1A]/25">
-          KW {stats.kwNumber}: {formatStatDuration(stats.kwSeconds)}
+          KW {stats.kwNumber}: {formatStatDuration(stats.kwSeconds + liveElapsed)}
         </p>
         <p className="text-xs font-medium text-[#1A1A1A]/25">
           ø Tag: {formatStatDuration(stats.avgPerDay)}
