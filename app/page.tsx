@@ -321,7 +321,7 @@ export default function Home() {
   const VIENNA_TZ = 'Europe/Vienna';
   const PAUSE_SECONDS = 1800; // 30 min
   const PAUSE_THRESHOLD = 21600; // 6h
-  const WEEKLY_TARGET = 144000; // 5 days x 8h net = 40h
+  const WEEKLY_TARGET = 138600; // 38h 30m net per week
 
   const stats = useMemo(() => {
     const dayMap: Record<string, TimeEntry[]> = {};
@@ -393,20 +393,35 @@ export default function Home() {
     const avgPerDay = totalWeekdays > 0 ? totalSeconds / totalWeekdays : 0;
     const delta = kwSeconds - WEEKLY_TARGET;
 
-    // Überstunden: accumulate weekly surplus/deficit across all weeks
-    const weekMap: Record<string, number> = {};
-    Object.entries(dayMap).forEach(([dateKey, dayEntries]) => {
-      const d = new Date(dateKey + 'T12:00:00');
-      const weekKey = `${getISOWeek(d)}-${d.getFullYear()}`;
-      if (!weekMap[weekKey]) weekMap[weekKey] = 0;
-      weekMap[weekKey] += getAdjustedDaySeconds(dayEntries);
-    });
-
+    // Saldo: iterate every day from first entry to today
+    // Daily target: 38.5h / 5 = 7h 42m = 27720s (weekdays only, after pause)
+    const DAILY_TARGET = 27720;
     let ueberstunden = 0;
-    Object.entries(weekMap).forEach(([weekKey]) => {
-      const weekTotal = weekMap[weekKey];
-      ueberstunden += weekTotal - WEEKLY_TARGET;
-    });
+    if (allDates.length > 0) {
+      const firstDate = new Date(allDates[0] + 'T12:00:00');
+      const todayStr = getViennaDateString(new Date());
+      const todayDate = new Date(todayStr + 'T12:00:00');
+      const cursor = new Date(firstDate);
+      while (cursor <= todayDate) {
+        const dateKey = cursor.toISOString().slice(0, 10);
+        const dayOfWeek = getDay(cursor);
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const dayEntries = dayMap[dateKey];
+
+        if (dayEntries) {
+          const worked = getAdjustedDaySeconds(dayEntries);
+          if (isWeekend) {
+            ueberstunden += worked;
+          } else {
+            ueberstunden += worked - DAILY_TARGET;
+          }
+        } else if (!isWeekend) {
+          ueberstunden -= DAILY_TARGET;
+        }
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
 
     return { totalSeconds, kwNumber, kwSeconds, avgPerDay, delta, ueberstunden };
   }, [completedEntries]);
