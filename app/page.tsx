@@ -27,6 +27,22 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [useLocalStorage, setUseLocalStorage] = useState(false);
 
+  // Live "to go" counter for the week
+  const [liveElapsed, setLiveElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!isRunning || !startTime) {
+      setLiveElapsed(0);
+      return;
+    }
+    const tick = () => {
+      setLiveElapsed(Math.floor((Date.now() - startTime.getTime()) / 1000));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, startTime]);
+
   // Home office state
   const [isHomeOffice, setIsHomeOffice] = useState(false);
 
@@ -452,11 +468,8 @@ export default function Home() {
         <p className="text-xs font-medium text-[#1A1A1A]/25">
           ø Tag: {formatStatDuration(stats.avgPerDay)}
         </p>
-        <p
-          className="text-xs font-medium"
-          style={{ color: stats.delta >= 0 ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)' }}
-        >
-          {stats.delta >= 0 ? '+' : '-'}{formatStatDuration(stats.delta)}
+        <p className="text-xs font-medium text-[#1A1A1A]/25">
+          To go: {formatStatDuration(Math.max(0, WEEKLY_TARGET - stats.kwSeconds - liveElapsed))}
         </p>
         <p
           className="text-xs font-medium"
