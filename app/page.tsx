@@ -393,7 +393,22 @@ export default function Home() {
     const avgPerDay = totalWeekdays > 0 ? totalSeconds / totalWeekdays : 0;
     const delta = kwSeconds - WEEKLY_TARGET;
 
-    return { totalSeconds, kwNumber, kwSeconds, avgPerDay, delta };
+    // Überstunden: accumulate weekly surplus/deficit across all weeks
+    const weekMap: Record<string, number> = {};
+    Object.entries(dayMap).forEach(([dateKey, dayEntries]) => {
+      const d = new Date(dateKey + 'T12:00:00');
+      const weekKey = `${getISOWeek(d)}-${d.getFullYear()}`;
+      if (!weekMap[weekKey]) weekMap[weekKey] = 0;
+      weekMap[weekKey] += getAdjustedDaySeconds(dayEntries);
+    });
+
+    let ueberstunden = 0;
+    Object.entries(weekMap).forEach(([weekKey]) => {
+      const weekTotal = weekMap[weekKey];
+      ueberstunden += weekTotal - WEEKLY_TARGET;
+    });
+
+    return { totalSeconds, kwNumber, kwSeconds, avgPerDay, delta, ueberstunden };
   }, [completedEntries]);
 
   function formatStatDuration(seconds: number): string {
@@ -435,6 +450,12 @@ export default function Home() {
           style={{ color: stats.delta >= 0 ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)' }}
         >
           {stats.delta >= 0 ? '+' : '-'}{formatStatDuration(stats.delta)}
+        </p>
+        <p
+          className="text-xs font-medium"
+          style={{ color: stats.ueberstunden >= 0 ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)' }}
+        >
+          Saldo: {stats.ueberstunden >= 0 ? '+' : '-'}{formatStatDuration(stats.ueberstunden)}
         </p>
       </motion.div>
 
