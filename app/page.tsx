@@ -393,33 +393,25 @@ export default function Home() {
     const avgPerDay = totalWeekdays > 0 ? totalSeconds / totalWeekdays : 0;
     const delta = kwSeconds - WEEKLY_TARGET;
 
-    // Saldo: iterate every day from first entry to today
-    // Daily target: 38.5h / 5 = 7h 42m = 27720s (weekdays only, after pause)
-    const DAILY_TARGET = 27720;
+    // Saldo: for every ISO week from first entry to now, worked - 38h30m
+    const weekTotals: Record<string, number> = {};
+    Object.entries(dayMap).forEach(([dateKey, dayEntries]) => {
+      const d = new Date(dateKey + 'T12:00:00');
+      const wKey = startOfISOWeek(d).toISOString().slice(0, 10);
+      if (!weekTotals[wKey]) weekTotals[wKey] = 0;
+      weekTotals[wKey] += getAdjustedDaySeconds(dayEntries);
+    });
+
     let ueberstunden = 0;
     if (allDates.length > 0) {
-      const firstDate = new Date(allDates[0] + 'T12:00:00');
-      const todayStr = getViennaDateString(new Date());
-      const todayDate = new Date(todayStr + 'T12:00:00');
-      const cursor = new Date(firstDate);
-      while (cursor <= todayDate) {
-        const dateKey = cursor.toISOString().slice(0, 10);
-        const dayOfWeek = getDay(cursor);
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const dayEntries = dayMap[dateKey];
-
-        if (dayEntries) {
-          const worked = getAdjustedDaySeconds(dayEntries);
-          if (isWeekend) {
-            ueberstunden += worked;
-          } else {
-            ueberstunden += worked - DAILY_TARGET;
-          }
-        } else if (!isWeekend) {
-          ueberstunden -= DAILY_TARGET;
-        }
-
-        cursor.setDate(cursor.getDate() + 1);
+      const firstWeek = startOfISOWeek(new Date(allDates[0] + 'T12:00:00'));
+      const currentWeek = startOfISOWeek(viennaNow);
+      const cursor = new Date(firstWeek);
+      while (cursor <= currentWeek) {
+        const wKey = cursor.toISOString().slice(0, 10);
+        const worked = weekTotals[wKey] || 0;
+        ueberstunden += worked - WEEKLY_TARGET;
+        cursor.setDate(cursor.getDate() + 7);
       }
     }
 
