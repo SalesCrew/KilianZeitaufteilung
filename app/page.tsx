@@ -407,7 +407,7 @@ export default function Home() {
       const firstWeek = startOfISOWeek(new Date(allDates[0] + 'T12:00:00'));
       const currentWeek = startOfISOWeek(viennaNow);
       const cursor = new Date(firstWeek);
-      while (cursor <= currentWeek) {
+      while (cursor < currentWeek) {
         const wKey = cursor.toISOString().slice(0, 10);
         const worked = weekTotals[wKey] || 0;
         ueberstunden += worked - WEEKLY_TARGET;
