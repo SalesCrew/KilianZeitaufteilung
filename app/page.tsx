@@ -402,7 +402,7 @@ export default function Home() {
       weekTotals[wKey] += getAdjustedDaySeconds(dayEntries);
     });
 
-    let ueberstunden = 0;
+    let ueberstunden = 154800; // 43h carried over from before this app
     if (allDates.length > 0) {
       const firstWeek = startOfISOWeek(new Date(allDates[0] + 'T12:00:00'));
       const currentWeek = startOfISOWeek(viennaNow);
