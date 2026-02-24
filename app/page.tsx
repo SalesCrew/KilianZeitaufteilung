@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
+import { getISOWeek, startOfISOWeek, endOfISOWeek, getDay } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import Timer from '@/components/Timer';
 import CompanySelector from '@/components/CompanySelector';
 import StartStopButton from '@/components/StartStopButton';
@@ -10,7 +12,7 @@ import HistoryPanel from '@/components/HistoryPanel';
 import ProjectModal from '@/components/ProjectModal';
 import ManualEntryModal from '@/components/ManualEntryModal';
 import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
-import { getNowISO } from '@/lib/utils';
+import { getNowISO, getViennaDateString, calculateDuration } from '@/lib/utils';
 
 export default function Home() {
   // Core state
@@ -316,6 +318,75 @@ export default function Home() {
   const currentTheme = selectedCompany ? COMPANY_THEMES[selectedCompany] : null;
   const completedEntries = entries.filter((e) => e.end_time !== null);
 
+  const VIENNA_TZ = 'Europe/Vienna';
+  const PAUSE_SECONDS = 1800; // 30 min
+  const PAUSE_THRESHOLD = 21600; // 6h
+  const WEEKLY_TARGET = 144000; // 5 days x 8h net = 40h
+
+  const stats = useMemo(() => {
+    const dayMap: Record<string, TimeEntry[]> = {};
+    completedEntries.forEach((e) => {
+      const dateKey = getViennaDateString(new Date(e.start_time));
+      if (!dayMap[dateKey]) dayMap[dateKey] = [];
+      dayMap[dateKey].push(e);
+    });
+
+    function getAdjustedDaySeconds(dayEntries: TimeEntry[]): number {
+      const isSickDay = dayEntries.some((e) => e.is_sick_day);
+      if (isSickDay) {
+        return 28800; // 8h30m recorded, minus 30min pause = 8h net
+      }
+
+      const rawSeconds = dayEntries.reduce(
+        (sum, e) => sum + calculateDuration(e.start_time, e.end_time),
+        0
+      );
+
+      let adjusted = rawSeconds;
+      if (rawSeconds >= PAUSE_THRESHOLD) {
+        adjusted -= PAUSE_SECONDS;
+      }
+
+      const sampleDate = toZonedTime(new Date(dayEntries[0].start_time), VIENNA_TZ);
+      if (getDay(sampleDate) === 0) {
+        adjusted *= 2;
+      }
+
+      return Math.max(0, adjusted);
+    }
+
+    let totalSeconds = 0;
+    Object.values(dayMap).forEach((dayEntries) => {
+      totalSeconds += getAdjustedDaySeconds(dayEntries);
+    });
+
+    const now = new Date();
+    const viennaNow = toZonedTime(now, VIENNA_TZ);
+    const kwNumber = getISOWeek(viennaNow);
+    const weekStart = startOfISOWeek(viennaNow);
+    const weekEnd = endOfISOWeek(viennaNow);
+
+    let kwSeconds = 0;
+    Object.entries(dayMap).forEach(([dateKey, dayEntries]) => {
+      const d = new Date(dateKey + 'T12:00:00');
+      if (d >= weekStart && d <= weekEnd) {
+        kwSeconds += getAdjustedDaySeconds(dayEntries);
+      }
+    });
+
+    const avgPerDay = kwSeconds / 5;
+    const delta = kwSeconds - WEEKLY_TARGET;
+
+    return { totalSeconds, kwNumber, kwSeconds, avgPerDay, delta };
+  }, [completedEntries]);
+
+  function formatStatDuration(seconds: number): string {
+    const abs = Math.abs(seconds);
+    const h = Math.floor(abs / 3600);
+    const m = Math.floor((abs % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
+
   return (
     <main
       className={`min-h-screen transition-all duration-500 ease-in-out ${
@@ -327,6 +398,30 @@ export default function Home() {
           : '#FAFAFA',
       }}
     >
+      {/* Stats info panel */}
+      <motion.div
+        className="fixed top-5 right-6 text-right z-10 space-y-0.5 select-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.8 }}
+      >
+        <p className="text-xs font-medium text-[#1A1A1A]/25">
+          Gesamt: {formatStatDuration(stats.totalSeconds)}
+        </p>
+        <p className="text-xs font-medium text-[#1A1A1A]/25">
+          KW {stats.kwNumber}: {formatStatDuration(stats.kwSeconds)}
+        </p>
+        <p className="text-xs font-medium text-[#1A1A1A]/25">
+          ø Tag: {formatStatDuration(stats.avgPerDay)}
+        </p>
+        <p
+          className="text-xs font-medium"
+          style={{ color: stats.delta >= 0 ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)' }}
+        >
+          {stats.delta >= 0 ? '+' : '-'}{formatStatDuration(stats.delta)}
+        </p>
+      </motion.div>
+
       <div className="max-w-xl mx-auto px-6 py-12 md:py-16">
         {/* Header */}
         <motion.header
