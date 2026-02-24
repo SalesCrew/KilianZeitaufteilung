@@ -374,7 +374,23 @@ export default function Home() {
       }
     });
 
-    const avgPerDay = kwSeconds / 5;
+    const allDates = Object.keys(dayMap).sort();
+    let totalWeekdays = 0;
+    if (allDates.length > 0) {
+      const firstDate = new Date(allDates[0] + 'T12:00:00');
+      const lastDate = new Date(allDates[allDates.length - 1] + 'T12:00:00');
+      const today = toZonedTime(new Date(), VIENNA_TZ);
+      const endDate = lastDate > today ? today : lastDate;
+      const cursor = new Date(firstDate);
+      while (cursor <= endDate) {
+        const day = getDay(cursor);
+        if (day !== 0 && day !== 6) totalWeekdays++;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      if (totalWeekdays === 0) totalWeekdays = 1;
+    }
+
+    const avgPerDay = totalWeekdays > 0 ? totalSeconds / totalWeekdays : 0;
     const delta = kwSeconds - WEEKLY_TARGET;
 
     return { totalSeconds, kwNumber, kwSeconds, avgPerDay, delta };
