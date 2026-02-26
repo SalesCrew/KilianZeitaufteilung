@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { title, description, source_email_from, source_email_subject, priority, project } = body;
+    const { title, description, source_email_from, source_email_subject, priority, project, prompt } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 });
@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       source_email_subject: source_email_subject || null,
       priority: priority || 'medium',
       project: project || 'other',
+      prompt: prompt || null,
     };
 
     const { data, error } = await supabase
@@ -87,7 +88,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { id, status, done_at } = body;
+    const { id, status, done_at, prompt } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
@@ -95,6 +96,7 @@ export async function PATCH(request: NextRequest) {
 
     const updates: Record<string, unknown> = {};
     if (status !== undefined) updates.status = status;
+    if (prompt !== undefined) updates.prompt = prompt;
 
     if (status === 'done') {
       updates.done_at = done_at || new Date().toISOString();

@@ -51,6 +51,7 @@ export interface Todo {
   priority: TodoPriority;
   status: TodoStatus;
   project: TodoProject;
+  prompt: string | null;
   created_at: string;
   done_at: string | null;
 }

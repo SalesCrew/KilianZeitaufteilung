@@ -140,6 +140,7 @@ interface TodoItemProps {
 
 function TodoItem({ todo, index, onToggle, onDelete, isDone }: TodoItemProps) {
   const [hovered, setHovered] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
   const projectColor = PROJECT_COLORS[todo.project] || PROJECT_COLORS.other;
   const priorityColor = PRIORITY_COLORS[todo.priority] || PRIORITY_COLORS.medium;
 
@@ -223,12 +224,62 @@ function TodoItem({ todo, index, onToggle, onDelete, isDone }: TodoItemProps) {
         )}
       </div>
 
-      {/* Right side: email icon for open, delete for done */}
-      {!isDone && todo.source_email_from && !todo.description && (
-        <svg className="w-3.5 h-3.5 text-[#9CA3AF]/40 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      )}
+      {/* Right side icons */}
+      <div className="flex flex-col items-center gap-1.5 flex-shrink-0 mt-0.5">
+        {!isDone && todo.source_email_from && !todo.description && (
+          <svg className="w-3.5 h-3.5 text-[#9CA3AF]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        )}
+
+        {!isDone && todo.prompt && (
+          <motion.button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(todo.prompt!);
+              setPromptCopied(true);
+              setTimeout(() => setPromptCopied(false), 3000);
+            }}
+            className="w-4 h-4 flex items-center justify-center transition-colors duration-150"
+            whileTap={{ scale: 0.85 }}
+            title="Prompt kopieren"
+          >
+            <AnimatePresence mode="wait">
+              {promptCopied ? (
+                <motion.svg
+                  key="check"
+                  className="w-3.5 h-3.5 text-emerald-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </motion.svg>
+              ) : (
+                <motion.svg
+                  key="prompt"
+                  className="w-3.5 h-3.5 text-[#DC2626]/70 hover:text-[#DC2626]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </motion.svg>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        )}
+      </div>
 
       {isDone && hovered && (
         <motion.button
