@@ -38,6 +38,23 @@ export interface CompanyTheme {
   fontClass: string;
 }
 
+export type TodoPriority = 'low' | 'medium' | 'high';
+export type TodoStatus = 'open' | 'done';
+export type TodoProject = 'merchandising' | 'salescrew' | 'inkognito' | 'other';
+
+export interface Todo {
+  id: string;
+  title: string;
+  description: string | null;
+  source_email_from: string | null;
+  source_email_subject: string | null;
+  priority: TodoPriority;
+  status: TodoStatus;
+  project: TodoProject;
+  created_at: string;
+  done_at: string | null;
+}
+
 export const COMPANY_THEMES: Record<Company, CompanyTheme> = {
   merchandising: {
     name: 'Merchandising',

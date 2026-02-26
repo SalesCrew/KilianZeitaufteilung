@@ -11,7 +11,8 @@ import StartStopButton from '@/components/StartStopButton';
 import HistoryPanel from '@/components/HistoryPanel';
 import ProjectModal from '@/components/ProjectModal';
 import ManualEntryModal from '@/components/ManualEntryModal';
-import { Company, TimeEntry, Project, COMPANY_THEMES } from '@/lib/types';
+import TodoPanel from '@/components/TodoPanel';
+import { Company, TimeEntry, Project, Todo, COMPANY_THEMES } from '@/lib/types';
 import { getNowISO, getViennaDateString, calculateDuration } from '@/lib/utils';
 
 export default function Home() {
@@ -51,6 +52,9 @@ export default function Home() {
   const [pendingCompany, setPendingCompany] = useState<Company | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
+  // Todos state
+  const [todos, setTodos] = useState<Todo[]>([]);
+
   // Load data on mount
   useEffect(() => {
     loadData();
@@ -62,9 +66,10 @@ export default function Home() {
     let loadedProjects: Project[] = [];
 
     try {
-      const [entriesRes, projectsRes] = await Promise.all([
+      const [entriesRes, projectsRes, todosRes] = await Promise.all([
         fetch('/api/time-entries'),
         fetch('/api/projects'),
+        fetch('/api/todos'),
       ]);
 
       if (entriesRes.ok && projectsRes.ok) {
@@ -78,6 +83,11 @@ export default function Home() {
           setProjects(projectsData);
           apiWorking = true;
         }
+      }
+
+      if (todosRes.ok) {
+        const todosData = await todosRes.json();
+        if (!todosData.error) setTodos(todosData);
       }
     } catch (error) {
       console.log('API not available, using local storage');
@@ -136,6 +146,52 @@ export default function Home() {
       }
     }
   }, [entries, projects, useLocalStorage]);
+
+  // Poll for new todos every 30 seconds
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch('/api/todos');
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.error) setTodos(data);
+        }
+      } catch { /* ignore */ }
+    }, 30000);
+    return () => clearInterval(poll);
+  }, []);
+
+  const handleToggleTodo = useCallback(async (id: string, newStatus: 'open' | 'done') => {
+    setTodos((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, status: newStatus, done_at: newStatus === 'done' ? new Date().toISOString() : null }
+          : t
+      )
+    );
+    try {
+      await fetch('/api/todos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+    } catch (error) {
+      console.error('Failed to toggle todo:', error);
+    }
+  }, []);
+
+  const handleDeleteTodo = useCallback(async (id: string) => {
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await fetch('/api/todos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+    } catch (error) {
+      console.error('Failed to delete todo:', error);
+    }
+  }, []);
 
   const handleCompanyClick = useCallback((company: Company) => {
     setPendingCompany(company);
@@ -452,6 +508,9 @@ export default function Home() {
           : '#FAFAFA',
       }}
     >
+      {/* Todo panel */}
+      <TodoPanel todos={todos} onToggle={handleToggleTodo} onDelete={handleDeleteTodo} />
+
       {/* Stats info panel */}
       <motion.div
         className="fixed top-5 right-6 text-right z-10 space-y-0.5 select-none"
