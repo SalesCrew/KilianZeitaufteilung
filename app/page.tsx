@@ -121,7 +121,13 @@ export default function Home() {
     if (activeEntry) {
       setCurrentEntryId(activeEntry.id);
       setSessionId(activeEntry.session_id);
-      setStartTime(new Date(activeEntry.start_time));
+
+      const sessionEntries = loadedEntries
+        .filter((e) => e.session_id === activeEntry.session_id)
+        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      const sessionStart = sessionEntries.length > 0 ? sessionEntries[0].start_time : activeEntry.start_time;
+      setStartTime(new Date(sessionStart));
+
       setIsRunning(true);
       setSelectedCompany(activeEntry.company);
       setIsHomeOffice(activeEntry.is_home_office ?? false);
