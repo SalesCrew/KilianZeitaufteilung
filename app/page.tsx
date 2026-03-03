@@ -122,11 +122,12 @@ export default function Home() {
       setCurrentEntryId(activeEntry.id);
       setSessionId(activeEntry.session_id);
 
-      const sessionEntries = loadedEntries
-        .filter((e) => e.session_id === activeEntry.session_id)
+      const todayStr = getViennaDateString(new Date());
+      const todayEntries = loadedEntries
+        .filter((e) => getViennaDateString(new Date(e.start_time)) === todayStr)
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-      const sessionStart = sessionEntries.length > 0 ? sessionEntries[0].start_time : activeEntry.start_time;
-      setStartTime(new Date(sessionStart));
+      const dayStart = todayEntries.length > 0 ? todayEntries[0].start_time : activeEntry.start_time;
+      setStartTime(new Date(dayStart));
 
       setIsRunning(true);
       setSelectedCompany(activeEntry.company);
@@ -285,7 +286,13 @@ export default function Home() {
     const nowISO = now.toISOString();
 
     setSessionId(newSessionId);
-    setStartTime(now);
+
+    const todayStr = getViennaDateString(now);
+    const todayEntries = entries
+      .filter((e) => getViennaDateString(new Date(e.start_time)) === todayStr)
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    setStartTime(todayEntries.length > 0 ? new Date(todayEntries[0].start_time) : now);
+
     setIsRunning(true);
 
     if (useLocalStorage) {
@@ -326,7 +333,7 @@ export default function Home() {
         setIsRunning(false);
       }
     }
-  }, [selectedCompany, selectedProject, useLocalStorage]);
+  }, [selectedCompany, selectedProject, useLocalStorage, entries]);
 
   const handleStart = useCallback(async () => {
     if (!selectedCompany || !selectedProject) return;
